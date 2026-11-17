@@ -4,9 +4,10 @@ import { Accounting, api, fmtBytes, fmtCount, fmtMs, safeStore, ScanEvent, Volum
 import { Atlas } from "./Atlas";
 import { HistoryScreen, ReclaimScreen, ReclaimDraft } from "./Reclaim";
 import { SettingsScreen, Prefs } from "./Settings";
+import { TweaksScreen } from "./Tweaks";
 
 export type Screen = "home" | "clean" | "atlas" | "tools" | "ledger" | "settings";
-export type ToolTab = "programs" | "relocate";
+export type ToolTab = "programs" | "relocate" | "tweaks";
 
 export interface ScanState {
   root: string; running: boolean; items: number; bytes: number; ms: number; mode: string;
@@ -76,7 +77,7 @@ export function App() {
   const nav: [Screen, string, boolean][] = useMemo(() => [
     ["home", "Home", true],
     ["clean", "Clean", true],
-    ["atlas", "Explore", scan.root !== ""],
+    ["atlas", "Explore", true],
     ["tools", "Tools", true],
     ["ledger", "History", true],
     ["settings", "Settings", true],
@@ -107,9 +108,12 @@ export function App() {
         {screen === "clean" && (scan.running && !scan.doneAt
           ? <ScanningCard scan={scan} onStop={() => api.cancelScan()} />
           : <ReclaimScreen key="clean" initialTab="clean" hasScan={hasScan} drafts={drafts} setDrafts={setDrafts} onChanged={() => setStale(true)} stale={stale} onRescan={(f) => startScan(scan.root, f, "clean")} canRescan={scan.root !== ""} goVolumes={() => setScreen("home")} />)}
-        {screen === "atlas" && <Atlas scan={scan} prefs={prefs} onCancel={() => api.cancelScan()} onRescan={(f) => startScan(scan.root, f)} stale={stale}
+        {screen === "atlas" && !scan.root && <ExplorePicker onScan={startScan} />}
+        {screen === "atlas" && scan.root && <Atlas scan={scan} prefs={prefs} onCancel={() => api.cancelScan()} onRescan={(f) => startScan(scan.root, f)} stale={stale}
           onAdd={(d) => { setDrafts((o) => o.some((x) => x.path === d.path) ? o : [...o, d]); }} draftCount={drafts.length} onGoReclaim={() => setScreen("clean")} />}
-        {screen === "tools" && (toolTab
+        {screen === "tools" && (toolTab === "tweaks"
+          ? <TweaksScreen onBack={() => setToolTab(null)} />
+          : toolTab
           ? <ReclaimScreen key={toolTab} initialTab={toolTab} onBack={() => setToolTab(null)} hasScan={hasScan} drafts={drafts} setDrafts={setDrafts} onChanged={() => setStale(true)} stale={stale} onRescan={(f) => startScan(scan.root, f)} canRescan={scan.root !== ""} goVolumes={() => setScreen("home")} />
           : <ToolsScreen open={setToolTab} go={setScreen} />)}
         {screen === "ledger" && <HistoryScreen hasScan={hasScan} />}
@@ -244,6 +248,36 @@ function HomeScreen({ onScan, current }: { onScan: (root: string, fast: boolean,
   );
 }
 
+function ExplorePicker({ onScan }: { onScan: (root: string, fast: boolean) => void }) {
+  const [vols, setVols] = useState<Volume[] | null>(null);
+  useEffect(() => { api.volumes().then(setVols).catch(() => setVols([])); }, []);
+  return (
+    <div className="page">
+      <div className="page__inner gap-4">
+        <h1 className="display">Explore a drive</h1>
+        <p className="sub">See every folder and file by size: a map, a tree and file types. Fast scan reads the file table directly and asks for administrator permission once. Standard needs none.</p>
+        <div className="drives__grid stagger" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+          {vols === null && [0, 1, 2, 3].map((i) => <div key={i} className="skel skel--vol" style={{ "--i": i } as React.CSSProperties} />)}
+          {vols?.map((v, i) => {
+            const pct = v.total ? (v.total - v.free) / v.total : 0, tight = v.total > 0 && v.free / v.total < 0.1;
+            return (
+              <article className="drive" key={v.root} style={{ "--i": i } as React.CSSProperties}>
+                <div className="drive__top"><span className="drive__letter">{v.root.slice(0, 2)}</span><span className="sub truncate">{v.label || "Local disk"}</span></div>
+                <div className="drive__top"><span className={`drive__free ${tight ? "signal" : ""}`}>{fmtBytes(v.free)}</span><span className="muted">free of {fmtBytes(v.total)}</span></div>
+                <div className="drive__bar" role="img" aria-label={`${Math.round(pct * 100)}% used`}><div className={tight ? "tight" : ""} style={{ width: `${pct * 100}%` }} /></div>
+                <div className="drive__actions">
+                  {v.fast && <button className="btn btn--primary btn--sm" onClick={() => onScan(v.root, true)}>Fast scan</button>}
+                  <button className="btn btn--ghost btn--sm" onClick={() => onScan(v.root, false)}>{v.fast ? "Standard" : "Scan"}</button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScanningCard({ scan, onStop }: { scan: ScanState; onStop: () => void }) {
   return (
     <div className="page">
@@ -260,6 +294,7 @@ function ScanningCard({ scan, onStop }: { scan: ScanState; onStop: () => void })
 
 function ToolsScreen({ open, go }: { open: (t: ToolTab) => void; go: (s: Screen) => void }) {
   const tools: { name: string; text: string; run: () => void }[] = [
+    { name: "Tweaks", text: "Performance, privacy, Explorer and taskbar settings, each with its live state and one-click undo.", run: () => open("tweaks") },
     { name: "Programs by size", text: "Every installed program, measured on disk. Runs the program’s own uninstaller.", run: () => open("programs") },
     { name: "Move a folder", text: "Copy to another drive, verify every file, leave a link behind so nothing breaks.", run: () => open("relocate") },
     { name: "Explore a drive", text: "Map, tree and file types for any drive or folder.", run: () => go("home") },
@@ -279,7 +314,7 @@ function ToolsScreen({ open, go }: { open: (t: ToolTab) => void; go: (s: Screen)
             </button>
           ))}
         </div>
-        <p className="muted">Debloat arrives in milestone M6b. It isn’t shown until it’s built and tested.</p>
+        
       </div>
     </div>
   );

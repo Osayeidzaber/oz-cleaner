@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-label="A terminal showing Oz reading the MFT, read-only">
+<style>
+ .m{font:500 12px ui-monospace,'JetBrains Mono',Consolas,monospace;fill:#bdbdbd}.d{fill:#3a3a3a}.w{fill:#f2f2f2}.y{fill:#e8c547}
+ .ln{opacity:0;animation:show 12s steps(1) infinite}
+ .bar{transform-box:fill-box;transform:scaleX(0);animation:fill 12s cubic-bezier(.6,0,.2,1) infinite}
+ .cur{animation:blink 1s steps(1) infinite}
+ @keyframes show{0%{opacity:0}1%,92%{opacity:1}100%{opacity:0}}
+ @keyframes fill{0%,20%{transform:scaleX(0)}55%,92%{transform:scaleX(1)}100%{transform:scaleX(1);opacity:0}}
+ @keyframes blink{50%{opacity:0}}
+ @media (prefers-reduced-motion:reduce){*{animation:none!important;opacity:1!important;transform:none!important}}
+</style>
+<rect width="960" height="300" rx="12" fill="#000"/><rect x=".5" y=".5" width="959" height="299" rx="12" fill="none" stroke="#1f1f1f"/>
+<circle cx="28" cy="26" r="5" fill="#1f1f1f"/><circle cx="46" cy="26" r="5" fill="#1f1f1f"/><circle cx="64" cy="26" r="5" fill="#1f1f1f"/>
+<text x="932" y="30" class="m d" text-anchor="end">OZ-HELPER.EXE · READ-ONLY</text>
+<line x1="0" y1="46" x2="960" y2="46" stroke="#1f1f1f"/>
+<text x="28" y="80" class="m ln" style="animation-delay:.2s"><tspan class="d">$</tspan> <tspan class="w">oz scan C: --fast</tspan></text>
+<text x="28" y="108" class="m ln" style="animation-delay:1.2s">→ opening volume <tspan class="w">\.\C:</tspan> <tspan class="d">GENERIC_READ only. we don't write. ever.</tspan></text>
+<text x="28" y="136" class="m ln" style="animation-delay:2.2s">→ reading $MFT records</text>
+<rect x="28" y="152" width="560" height="6" rx="3" fill="#1f1f1f" class="ln" style="animation-delay:2.4s"/>
+<rect x="28" y="152" width="560" height="6" rx="3" fill="#f2f2f2" class="bar"/>
+<text x="604" y="159" class="m d ln" style="animation-delay:2.4s">[placeholder]</text>
+<text x="28" y="192" class="m ln" style="animation-delay:6.8s">→ found <tspan class="w">~/.cache</tspan> that rebuilds itself  <tspan class="w">SAFE</tspan></text>
+<text x="28" y="218" class="m ln" style="animation-delay:7.6s">→ found an old installer in Downloads  <tspan class="y">CHECK FIRST</tspan></text>
+<text x="28" y="244" class="m ln" style="animation-delay:8.4s">→ found your AI chat history  <tspan class="w">KEEP</tspan> <tspan class="d">(obviously)</tspan></text>
+<text x="28" y="276" class="m ln" style="animation-delay:9.4s"><tspan class="d">$</tspan> <tspan class="w cur">█</tspan></text>
+</svg>

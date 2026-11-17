@@ -20,7 +20,16 @@ fn read_str(k: HKEY, name: &str) -> Option<String> {
     let mut size = (buf.len() * 2) as u32;
     let mut ty = 0u32;
     // SAFETY: buffer and size match.
-    let r = unsafe { RegQueryValueExW(k, w.as_ptr(), std::ptr::null(), &mut ty, buf.as_mut_ptr().cast(), &mut size) };
+    let r = unsafe {
+        RegQueryValueExW(
+            k,
+            w.as_ptr(),
+            std::ptr::null(),
+            &mut ty,
+            buf.as_mut_ptr().cast(),
+            &mut size,
+        )
+    };
     if r != ERROR_SUCCESS || (ty != REG_SZ && ty != REG_EXPAND_SZ) {
         return None;
     }
@@ -33,15 +42,33 @@ fn read_dword(k: HKEY, name: &str) -> Option<u32> {
     let w = wide(name);
     let (mut v, mut size, mut ty) = (0u32, 4u32, 0u32);
     // SAFETY: out pointers valid and sized.
-    let r = unsafe { RegQueryValueExW(k, w.as_ptr(), std::ptr::null(), &mut ty, (&mut v as *mut u32).cast(), &mut size) };
+    let r = unsafe {
+        RegQueryValueExW(
+            k,
+            w.as_ptr(),
+            std::ptr::null(),
+            &mut ty,
+            (&mut v as *mut u32).cast(),
+            &mut size,
+        )
+    };
     (r == ERROR_SUCCESS && ty == REG_DWORD).then_some(v)
 }
 
 pub fn list() -> Vec<App> {
     const PATHS: [(HKEY, &str); 3] = [
-        (HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (
+            HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
+        (
+            HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
+        (
+            HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
     ];
     let mut out: Vec<App> = Vec::new();
     for (hive, path) in PATHS {
@@ -57,7 +84,16 @@ pub fn list() -> Vec<App> {
             let mut len = name.len() as u32;
             // SAFETY: buffer and length match.
             let r = unsafe {
-                RegEnumKeyExW(root, i, name.as_mut_ptr(), &mut len, std::ptr::null(), std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut())
+                RegEnumKeyExW(
+                    root,
+                    i,
+                    name.as_mut_ptr(),
+                    &mut len,
+                    std::ptr::null(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                )
             };
             if r != ERROR_SUCCESS {
                 break;

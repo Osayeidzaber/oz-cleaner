@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 200" width="960" height="200" role="img" aria-label="A tweak toggles on, gets written to the Ledger, then Undo all flips it back">
+<style>
+ .m{font:500 12px ui-monospace,'JetBrains Mono',Consolas,monospace;letter-spacing:.14em}
+ .k{animation:knob 6s cubic-bezier(.2,.8,.2,1) infinite}
+ .tr{animation:track 6s steps(1) infinite}
+ .led{opacity:0;animation:led 6s ease infinite}
+ .u{animation:press 6s ease infinite;transform-box:fill-box;transform-origin:center}
+ @keyframes knob{0%,10%{transform:translateX(0)}18%,62%{transform:translateX(40px)}72%,100%{transform:translateX(0)}}
+ @keyframes track{0%{fill:#1f1f1f}18%{fill:#f2f2f2}70%{fill:#1f1f1f}}
+ @keyframes led{0%,22%{opacity:0}28%,90%{opacity:1}100%{opacity:0}}
+ @keyframes press{0%,58%,70%,100%{transform:scale(1)}64%{transform:scale(.93)}}
+ @media (prefers-reduced-motion:reduce){*{animation:none!important;opacity:1!important}}
+</style>
+<rect width="960" height="200" rx="12" fill="#000"/>
+<text x="32" y="40" class="m" fill="#8a8a8a">05 — EVERY TWEAK HAS A WAY BACK</text>
+<text x="32" y="112" class="m" fill="#f2f2f2">[example tweak]</text>
+<rect class="tr" x="260" y="92" width="80" height="40" rx="20" fill="#1f1f1f"/>
+<circle class="k" cx="280" cy="112" r="14" fill="#8a8a8a"/>
+<g class="led"><line x1="370" y1="112" x2="420" y2="112" stroke="#3a3a3a" stroke-dasharray="3 4"/>
+<rect x="430" y="76" width="300" height="72" rx="12" fill="none" stroke="#1f1f1f"/>
+<text x="450" y="104" class="m" fill="#8a8a8a" style="font-size:10px">LEDGER</text>
+<text x="450" y="128" class="m" fill="#bdbdbd" style="font-size:11px">prior value saved ✓</text></g>
+<g class="u"><rect x="770" y="90" width="160" height="44" rx="22" fill="#f2f2f2"/><text x="850" y="117" class="m" fill="#000" text-anchor="middle">UNDO ALL ↺</text></g>
+</svg>

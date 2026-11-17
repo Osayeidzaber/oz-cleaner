@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 240" width="960" height="240" role="img" aria-label="A personal file bounces off the bin: Keep">
+<style>
+ .m{font:500 12px ui-monospace,'JetBrains Mono',Consolas,monospace;letter-spacing:.14em}
+ .f{animation:toss 5s cubic-bezier(.5,0,.3,1) infinite}
+ .s{opacity:0;transform-box:fill-box;transform-origin:center;animation:stamp 5s cubic-bezier(.2,1.6,.4,1) infinite}
+ .bin{transform-box:fill-box;transform-origin:bottom center;animation:shake 5s ease-in-out infinite}
+ @keyframes toss{0%,8%{transform:translate(0,0) rotate(0)}38%{transform:translate(520px,10px) rotate(14deg)}48%{transform:translate(470px,-30px) rotate(-8deg)}70%,100%{transform:translate(0,0) rotate(0)}}
+ @keyframes stamp{0%,40%{opacity:0;transform:scale(2.2) rotate(-12deg)}46%,80%{opacity:1;transform:scale(1) rotate(-8deg)}90%,100%{opacity:0}}
+ @keyframes shake{0%,36%,50%,100%{transform:rotate(0)}40%{transform:rotate(-6deg)}44%{transform:rotate(5deg)}}
+ @media (prefers-reduced-motion:reduce){*{animation:none!important}.s{opacity:1}}
+</style>
+<rect width="960" height="240" rx="12" fill="#000"/>
+<text x="32" y="40" class="m" fill="#8a8a8a">04 — THE KEEP RULE, ILLUSTRATED</text>
+<g class="f"><rect x="120" y="96" width="96" height="116" rx="6" fill="#0d0d0d" stroke="#3a3a3a"/>
+<path d="M188 96v26h28" fill="none" stroke="#3a3a3a"/>
+<text x="168" y="168" class="m" fill="#f2f2f2" text-anchor="middle" style="font-size:10px">chats</text>
+<text x="168" y="184" class="m" fill="#8a8a8a" text-anchor="middle" style="font-size:10px">.json</text></g>
+<g class="bin"><path d="M640 120h120l-12 96h-96z" fill="none" stroke="#3a3a3a" stroke-width="2"/>
+<line x1="628" y1="112" x2="772" y2="112" stroke="#3a3a3a" stroke-width="2"/>
+<line x1="680" y1="134" x2="684" y2="200" stroke="#1f1f1f" stroke-width="2"/><line x1="716" y1="134" x2="712" y2="200" stroke="#1f1f1f" stroke-width="2"/></g>
+<g class="s"><rect x="792" y="80" width="130" height="50" rx="25" fill="#f2f2f2"/><text x="857" y="111" class="m" fill="#000" text-anchor="middle" style="font-weight:800">NOPE. KEEP.</text></g>
+</svg>

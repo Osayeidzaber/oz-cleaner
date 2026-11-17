@@ -23,8 +23,7 @@ export function SettingsScreen({ prefs, setPrefs }: { prefs: Prefs; setPrefs: (p
   return (
     <div className="page">
       <div className="page__inner">
-        <span className="label">05 — Settings</span>
-        <h1 className="display" style={{ marginBlock: "32px 48px" }}>Settings</h1>
+        <h1 className="display" style={{ marginBlock: "16px 32px" }}>Settings</h1>
         <div className="setting">
           <div><h2 className="title">Motion</h2><p className="muted">Full, shorter fades, or none.</p></div>
           <Choice label="Motion" value={prefs.motion} onChange={(motion) => setPrefs({ motion })} options={[["full", "Full"], ["reduced", "Reduced"], ["off", "Off"]]} />

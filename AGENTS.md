@@ -63,7 +63,8 @@ If unsure, make it Protected (explain only). For AI and dev tools, split each to
 A tweak (appx removal, feature toggle, registry value, scheduled task, service start type) may be added only when:
 - the change is made through a documented Microsoft mechanism: `Remove-AppxPackage` for the current user, the DISM or optional features API, a documented policy or registry value, Task Scheduler, or the Service Control Manager;
 - its catalog entry lists the exact targets, the apply action, the revert action, the Windows builds tested, and `verified`;
-- apply, then revert, then check that the state matches the original has been run in a VM or Sandbox and passes as an automated test;
+- **machine-wide** tweaks (HKLM, services, power settings) must pass apply, revert and a state-equal check in a VM or Sandbox, as an automated test, before they can be applied;
+- **per-user** tweaks (HKCU values and the active power plan) may be applied on the owner's PC without the Sandbox test (owner decision, 2026-11-17). They still need a catalog entry, a saved prior value before writing, and a working Undo. The write and undo mechanism is tested on an app-owned scratch key;
 - it is tiered like cleaning rules: **Recommended**, **Optional**, or **Explain only**.
 
 Before applying any batch, the app offers a System Restore point and records every prior state in the Ledger. One-click "Undo all" must exist for every batch. No tweak bundles ("apply everything") without showing each change.
@@ -149,3 +150,4 @@ Append new entries; do not edit old ones.
 - **2026-11-17** Owner asked for the uninstaller to remove an app "A to Z". Added section 6b: official uninstaller first, then evidence-ranked leftovers (files and registry), held or exported so they can be undone. Rule 3.9 is extended to cover removing an uninstalled app's own registry keys, with a backup.
 - **2026-11-17** Design system "Oz Ink": tokens moved to OKLCH, text contrast raised (text-3 is now L .72), and an owner-requested **accent** `oklch(.86 .16 152)` added for the primary action, focus, selection, progress and success. It is never used for risk. The serif italic accent word is retired; `.accent` is now upright sans in the accent colour. Navigation is now Home / Clean / Explore / Tools / History / Settings. Motion tokens added: `--pop` 200 ms, exits 20% shorter, 30 ms stagger, press scale .97, popovers from .95.
 - **2026-11-17** Owner reversed the accent: "DO NOT USE ACCENT COLOR." The green is removed. `--accent` now resolves to white, so primary actions and selection invert, as on zaber.tech.
+- **2026-11-17** Owner chose to relax the tweak gate ("Relax the gate"). Per-user tweaks (HKCU and the power plan) can now be applied without a Sandbox test, with prior-value Undo kept. Machine-wide tweaks still require the Sandbox test and the elevated helper.

@@ -50,7 +50,9 @@ fn u64_at(b: &[u8], o: usize) -> Option<u64> {
 
 /// Applies the update sequence array. Returns false if the record is torn.
 pub fn apply_fixups(rec: &mut [u8], sector: usize) -> bool {
-    let (Some(off), Some(count)) = (u16_at(rec, 4), u16_at(rec, 6)) else { return false };
+    let (Some(off), Some(count)) = (u16_at(rec, 4), u16_at(rec, 6)) else {
+        return false;
+    };
     let (off, count) = (off as usize, count as usize);
     if count < 1 || sector < 2 || off + count * 2 > rec.len() {
         return false;
@@ -147,8 +149,16 @@ fn parse_name(v: &[u8]) -> Option<FileName> {
         return None; // DOS 8.3 alias of a name present elsewhere
     }
     let raw = v.get(66..66 + len * 2)?;
-    let wide: Vec<u16> = raw.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
-    Some(FileName { parent, name: String::from_utf16_lossy(&wide) })
+    let wide: Vec<u16> = raw
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|c| u16::from_le_bytes(*c))
+        .collect();
+    Some(FileName {
+        parent,
+        name: String::from_utf16_lossy(&wide),
+    })
 }
 
 fn add_data(r: &mut Record, a: &[u8], non_resident: bool, name_len: u8) {
@@ -277,7 +287,9 @@ pub fn decode_record(b: &[u8], o: &mut usize) -> Option<Record> {
     for _ in 0..count {
         let parent = u64_at(b, p)?;
         let l = u16_at(b, p + 8)? as usize;
-        let name = std::str::from_utf8(b.get(p + 10..p + 10 + l)?).ok()?.to_string();
+        let name = std::str::from_utf8(b.get(p + 10..p + 10 + l)?)
+            .ok()?
+            .to_string();
         r.names.push(FileName { parent, name });
         p += 10 + l;
     }
@@ -300,7 +312,10 @@ mod tests {
             is_dir: true,
             has_ads: true,
             has_std: true,
-            names: vec![super::FileName { parent: 5, name: "dé.txt".into() }],
+            names: vec![super::FileName {
+                parent: 5,
+                name: "dé.txt".into(),
+            }],
         };
         let mut b = Vec::new();
         super::encode_record(&r, &mut b);
@@ -362,7 +377,14 @@ mod tests {
 
     #[test]
     fn hard_links_and_dos_alias() {
-        let b = record(1, &[name_attr(5, "LONGNA~1.TXT", 2), name_attr(5, "long name.txt", 1), name_attr(9, "second.txt", 1)]);
+        let b = record(
+            1,
+            &[
+                name_attr(5, "LONGNA~1.TXT", 2),
+                name_attr(5, "long name.txt", 1),
+                name_attr(9, "second.txt", 1),
+            ],
+        );
         let r = parse_record(&b, 40).unwrap();
         assert_eq!(r.names.len(), 2);
         assert_eq!(r.names[0].name, "long name.txt");
@@ -375,7 +397,14 @@ mod tests {
         assert_eq!((r.logical, r.allocated), (10000, 12288));
         let r = parse_record(&record(1, &[nonres(10000, 12288, 4096, 0x8000, false)]), 1).unwrap();
         assert_eq!(r.allocated, 4096);
-        let r = parse_record(&record(1, &[nonres(100, 4096, 0, 0, false), nonres(50, 4096, 0, 0, true)]), 1).unwrap();
+        let r = parse_record(
+            &record(
+                1,
+                &[nonres(100, 4096, 0, 0, false), nonres(50, 4096, 0, 0, true)],
+            ),
+            1,
+        )
+        .unwrap();
         assert_eq!(r.allocated, 8192);
         assert!(r.has_ads);
         let r = parse_record(&record(1, &[resident(0x80, &[1, 2, 3])]), 1).unwrap();
@@ -423,7 +452,14 @@ mod tests {
     /// Deterministic corruption test: must never panic.
     #[test]
     fn fuzz_never_panics() {
-        let base = record(3, &[name_attr(5, "x.txt", 1), nonres(1, 2, 3, 0, false), resident(0x10, &[0; 48])]);
+        let base = record(
+            3,
+            &[
+                name_attr(5, "x.txt", 1),
+                nonres(1, 2, 3, 0, false),
+                resident(0x10, &[0; 48]),
+            ],
+        );
         let mut s: u64 = 0x9E37_79B9_7F4A_7C15;
         let mut next = move || {
             s ^= s << 13;
@@ -437,7 +473,11 @@ mod tests {
                 let i = (next() as usize) % b.len().min(240);
                 b[i] = next() as u8;
             }
-            let cut = if next() % 8 == 0 { (next() as usize) % b.len() } else { b.len() };
+            let cut = if next() % 8 == 0 {
+                (next() as usize) % b.len()
+            } else {
+                b.len()
+            };
             let n = parse_record(&b[..cut], 1);
             let _ = n;
             let mut c = b.clone();

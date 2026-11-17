@@ -11,8 +11,13 @@ fn main() {
     if args.len() != 4 {
         return;
     }
-    let (Ok(parent), Ok(token)) = (args[2].parse::<u32>(), u128::from_str_radix(&args[3], 16)) else { return };
-    let Ok(mut pipe) = connect_to_parent(&args[1], parent, token) else { return };
+    let (Ok(parent), Ok(token)) = (args[2].parse::<u32>(), u128::from_str_radix(&args[3], 16))
+    else {
+        return;
+    };
+    let Ok(mut pipe) = connect_to_parent(&args[1], parent, token) else {
+        return;
+    };
 
     // Exit with the parent, whatever it is doing.
     std::thread::spawn(move || loop {
@@ -83,7 +88,13 @@ fn plan(pipe: &mut Pipe, data: &[u8]) -> bool {
 fn cleanup(pipe: &mut Pipe) -> bool {
     let windir = std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".into());
     let status = std::process::Command::new(format!(r"{windir}\System32\Dism.exe"))
-        .args(["/Online", "/Cleanup-Image", "/StartComponentCleanup", "/Quiet", "/NoRestart"])
+        .args([
+            "/Online",
+            "/Cleanup-Image",
+            "/StartComponentCleanup",
+            "/Quiet",
+            "/NoRestart",
+        ])
         .status();
     let msg = match status {
         Ok(s) => s.code().unwrap_or(-1).to_string(),

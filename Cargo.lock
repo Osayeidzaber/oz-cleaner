@@ -2133,6 +2133,7 @@ dependencies = [
  "oz-ntfs",
  "oz-ops",
  "oz-rules",
+ "oz-tweaks",
  "oz-win",
  "serde",
  "serde_json",
@@ -2178,6 +2179,14 @@ dependencies = [
 
 [[package]]
 name = "oz-rules"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "toml 0.8.23",
+]
+
+[[package]]
+name = "oz-tweaks"
 version = "0.1.0"
 dependencies = [
  "serde",

@@ -30,28 +30,54 @@ impl Guard {
         let (w, pr) = (norm(windir), norm(profile));
         let mut trees = vec![w.clone(), norm(program_data)];
         trees.extend(program_files.iter().map(|p| norm(p)));
-        let users_dir = pr.rsplit_once('\\').map(|x| x.0.to_string()).unwrap_or_default();
+        let users_dir = pr
+            .rsplit_once('\\')
+            .map(|x| x.0.to_string())
+            .unwrap_or_default();
         let mut objects = vec![pr.clone(), users_dir.clone()];
         for s in [
-            "appdata", "appdata\\local", "appdata\\roaming", "appdata\\locallow", "desktop", "documents", "downloads",
-            "pictures", "music", "videos", "onedrive",
+            "appdata",
+            "appdata\\local",
+            "appdata\\roaming",
+            "appdata\\locallow",
+            "desktop",
+            "documents",
+            "downloads",
+            "pictures",
+            "music",
+            "videos",
+            "onedrive",
         ] {
             objects.push(format!("{pr}\\{s}"));
         }
-        Self { trees, objects, exceptions: vec![format!("{w}\\temp")], users_dir, profile: pr }
+        Self {
+            trees,
+            objects,
+            exceptions: vec![format!("{w}\\temp")],
+            users_dir,
+            profile: pr,
+        }
     }
 
     /// Builds from this process's environment. Fails closed if it is incomplete.
     pub fn from_env() -> Result<Self, Refusal> {
         let get = |k: &str| std::env::var(k).map_err(|_| Refusal(format!("{k} is not set")));
-        let (w, p, pf, pd) = (get("WINDIR")?, get("USERPROFILE")?, get("ProgramFiles")?, get("ProgramData")?);
+        let (w, p, pf, pd) = (
+            get("WINDIR")?,
+            get("USERPROFILE")?,
+            get("ProgramFiles")?,
+            get("ProgramData")?,
+        );
         let pf86 = std::env::var("ProgramFiles(x86)").unwrap_or_else(|_| pf.clone());
         Ok(Self::new(&w, &p, &[&pf, &pf86], &pd))
     }
 
     /// Ok only if a plan may touch this path.
     pub fn check(&self, path: &str) -> Result<(), Refusal> {
-        let raw = path.strip_prefix(r"\\?\").unwrap_or(path).replace('/', "\\");
+        let raw = path
+            .strip_prefix(r"\\?\")
+            .unwrap_or(path)
+            .replace('/', "\\");
         let b = raw.as_bytes();
         let absolute = b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && b[2] == b'\\';
         if !absolute {
@@ -68,7 +94,10 @@ impl Guard {
         if first.starts_with('$') || first == "system volume information" {
             return Err(Refusal("volume metadata".into()));
         }
-        if matches!(first, "pagefile.sys" | "hiberfil.sys" | "swapfile.sys" | "bootmgr" | "recovery" | "boot") {
+        if matches!(
+            first,
+            "pagefile.sys" | "hiberfil.sys" | "swapfile.sys" | "bootmgr" | "recovery" | "boot"
+        ) {
             return Err(Refusal("system file".into()));
         }
         if self.objects.contains(&p) {
@@ -78,7 +107,11 @@ impl Guard {
             return Err(Refusal("another user's profile".into()));
         }
         // An exception permits contents only, never the folder itself.
-        if self.exceptions.iter().any(|e| p.starts_with(&format!("{e}\\"))) {
+        if self
+            .exceptions
+            .iter()
+            .any(|e| p.starts_with(&format!("{e}\\")))
+        {
             return Ok(());
         }
         if self.trees.iter().any(|t| under(&p, t)) {
@@ -93,7 +126,12 @@ mod tests {
     use super::*;
 
     fn g() -> Guard {
-        Guard::new(r"C:\Windows", r"C:\Users\zaber", &[r"C:\Program Files", r"C:\Program Files (x86)"], r"C:\ProgramData")
+        Guard::new(
+            r"C:\Windows",
+            r"C:\Users\zaber",
+            &[r"C:\Program Files", r"C:\Program Files (x86)"],
+            r"C:\ProgramData",
+        )
     }
 
     #[test]
@@ -140,7 +178,9 @@ mod tests {
             r"E:\Downloads\big.iso",
             r"\\?\E:\a\b",
             r"C:\Windowsish\x",
-            r"C:\Users\zaberish\x".replace("zaberish", "zaber\\x").as_str(),
+            r"C:\Users\zaberish\x"
+                .replace("zaberish", "zaber\\x")
+                .as_str(),
         ] {
             assert!(g.check(p).is_ok(), "should allow {p}");
         }

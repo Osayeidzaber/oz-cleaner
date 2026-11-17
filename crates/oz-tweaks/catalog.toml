@@ -1,0 +1,1174 @@
+# Tweak catalog (D-14, AGENTS.md section 6). Read the tweak gate before changing this file.
+#
+# `verified` stays empty until apply -> revert -> state-equal has passed in Windows Sandbox
+# or a VM. While it is empty the app shows the tweak and its live state but refuses to apply it.
+# `evidence` says where the mechanism comes from, using the labels from 03-ARCHITECTURE.md.
+# Security and update settings are rejected by the loader and can never be added here.
+
+# ---------------- Performance ----------------
+
+[[tweak]]
+id = "game-mode"
+name = "Game Mode"
+explain = "Windows gives the game you're playing priority and pauses some background work, such as driver installs from Windows Update."
+category = "Performance"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\GameBar'
+value = "AutoGameModeEnabled"
+on = "1"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Gaming > Game Mode."
+verified = ""
+
+[[tweak]]
+id = "power-high"
+name = "High performance power plan"
+explain = "Keeps the processor at higher speeds instead of saving power. Uses more energy; on a laptop, best only when plugged in."
+category = "Performance"
+tier = "Optional"
+kind = "power_plan"
+on = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
+restart = "none"
+evidence = "DOC: built-in High performance scheme GUID; PowerSetActiveScheme (powrprof)."
+verified = ""
+
+[[tweak]]
+id = "core-parking-off"
+name = "Keep all CPU cores awake"
+explain = "Stops Windows parking idle cores, so they respond without a wake-up delay. Slightly higher idle power use."
+category = "Performance"
+tier = "Optional"
+kind = "power_setting"
+on = "100"
+setting = "0cc5b647-c1df-4637-891a-dec35c318583"
+subgroup = "54533251-82be-4824-96c1-47b60b740d00"
+needs_admin = true
+restart = "none"
+evidence = "DOC: Processor performance core parking min cores (CPMINCORES) in the processor power subgroup."
+verified = ""
+
+[[tweak]]
+id = "hags"
+name = "Hardware-accelerated GPU scheduling"
+explain = "Lets the graphics card manage its own memory scheduling. Can lower latency on supported GPUs and drivers."
+category = "Performance"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKLM"
+key = 'SYSTEM\CurrentControlSet\Control\GraphicsDrivers'
+value = "HwSchMode"
+on = "2"
+needs_admin = true
+restart = "reboot"
+evidence = "KNOWN: value behind Settings > Display > Graphics > Hardware-accelerated GPU scheduling."
+verified = ""
+
+[[tweak]]
+id = "transparency-off"
+name = "Turn off transparency effects"
+explain = "Solid backgrounds in Start, the taskbar and windows. A small saving on older graphics."
+category = "Performance"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+value = "EnableTransparency"
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Colors > Transparency effects."
+verified = ""
+
+[[tweak]]
+id = "menu-delay"
+name = "Faster menus"
+explain = "Submenus open after 100 ms instead of the default 400 ms."
+category = "Performance"
+tier = "Optional"
+kind = "reg_sz"
+hive = "HKCU"
+key = 'Control Panel\Desktop'
+value = "MenuShowDelay"
+on = "100"
+restart = "signout"
+evidence = "DOC: SPI_SETMENUSHOWDELAY; per-user value MenuShowDelay."
+verified = ""
+
+[[tweak]]
+id = "startup-delay-off"
+name = "No delay for startup apps"
+explain = "Windows normally waits a few seconds after sign-in before starting startup apps. This removes the wait."
+category = "Performance"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize'
+value = "StartupDelayInMSec"
+on = "0"
+restart = "signout"
+evidence = "KNOWN: undocumented Explorer value; widely used. Treat as unverified until the Sandbox test."
+verified = ""
+
+# ---------------- Privacy and ads ----------------
+
+[[tweak]]
+id = "advertising-id-off"
+name = "No advertising ID"
+explain = "Apps can't use your advertising ID to show personalised ads."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo'
+value = "Enabled"
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > General > advertising ID."
+verified = ""
+
+[[tweak]]
+id = "tailored-experiences-off"
+name = "No tailored experiences"
+explain = "Microsoft doesn't use your diagnostic data to personalise tips, ads and recommendations."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Privacy'
+value = "TailoredExperiencesWithDiagnosticDataEnabled"
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > Diagnostics & feedback > Tailored experiences."
+verified = ""
+
+[[tweak]]
+id = "start-suggestions-off"
+name = "No suggestions in Start"
+explain = "Start stops showing app suggestions and promotions."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+value = "SubscribedContent-338388Enabled"
+on = "0"
+restart = "none"
+evidence = "KNOWN: ContentDeliveryManager subscription value; undocumented by Microsoft."
+verified = ""
+
+[[tweak]]
+id = "settings-suggestions-off"
+name = "No suggested content in Settings"
+explain = "Settings stops showing suggested content and offers."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+value = "SubscribedContent-338393Enabled"
+on = "0"
+restart = "none"
+evidence = "KNOWN: ContentDeliveryManager subscription value; undocumented by Microsoft."
+verified = ""
+
+[[tweak]]
+id = "tips-off"
+name = "No tips and tricks notifications"
+explain = "Windows stops sending tips, tricks and suggestions as notifications."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+value = "SubscribedContent-338389Enabled"
+on = "0"
+restart = "none"
+evidence = "KNOWN: ContentDeliveryManager subscription value; undocumented by Microsoft."
+verified = ""
+
+[[tweak]]
+id = "silent-installs-off"
+name = "No silently installed suggested apps"
+explain = "Windows stops installing promoted apps in the background."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+value = "SilentInstalledAppsEnabled"
+on = "0"
+restart = "none"
+evidence = "KNOWN: ContentDeliveryManager value; undocumented by Microsoft."
+verified = ""
+
+[[tweak]]
+id = "lockscreen-tips-off"
+name = "No fun facts on the lock screen"
+explain = "The lock screen stops showing tips and promotional facts."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+value = "RotatingLockScreenOverlayEnabled"
+on = "0"
+restart = "none"
+evidence = "KNOWN: ContentDeliveryManager value; undocumented by Microsoft."
+verified = ""
+
+[[tweak]]
+id = "web-search-off"
+name = "No web results in Start search"
+explain = "Searching from Start shows only what's on this PC, without Bing suggestions."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Policies\Microsoft\Windows\Explorer'
+value = "DisableSearchBoxSuggestions"
+on = "1"
+restart = "explorer"
+evidence = "DOC: Group Policy 'Turn off display of recent search entries in the File Explorer search box' family; DisableSearchBoxSuggestions."
+verified = ""
+
+[[tweak]]
+id = "copilot-off"
+name = "Turn off Copilot in Windows"
+explain = "Hides the Copilot button and shortcut where the policy is still honoured. Newer Copilot app versions may ignore it."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Policies\Microsoft\Windows\WindowsCopilot'
+value = "TurnOffWindowsCopilot"
+on = "1"
+restart = "explorer"
+evidence = "DOC: Policy CSP WindowsAI/TurnOffWindowsCopilot (deprecated for the new Copilot app)."
+verified = ""
+
+# ---------------- File Explorer ----------------
+
+[[tweak]]
+id = "show-extensions"
+name = "Show file extensions"
+explain = "Shows .exe, .pdf and other extensions, so a file named photo.jpg.exe can't pass as a photo."
+category = "Explorer"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = "HideFileExt"
+on = "0"
+restart = "explorer"
+evidence = "KNOWN: value behind Folder Options > Hide extensions for known file types."
+verified = ""
+
+[[tweak]]
+id = "show-hidden"
+name = "Show hidden files"
+explain = "Shows files and folders marked hidden. System files stay hidden."
+category = "Explorer"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = "Hidden"
+on = "1"
+restart = "explorer"
+evidence = "KNOWN: value behind Folder Options > Show hidden files, folders and drives."
+verified = ""
+
+[[tweak]]
+id = "open-this-pc"
+name = "Open File Explorer to This PC"
+explain = "File Explorer opens on your drives instead of Home."
+category = "Explorer"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = "LaunchTo"
+on = "1"
+restart = "none"
+evidence = "KNOWN: value behind Folder Options > Open File Explorer to."
+verified = ""
+
+# ---------------- Taskbar ----------------
+
+[[tweak]]
+id = "end-task"
+name = "End task from the taskbar"
+explain = "Adds End task to a taskbar app's right-click menu, for apps that stop responding."
+category = "Taskbar"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings'
+value = "TaskbarEndTask"
+on = "1"
+restart = "none"
+evidence = "KNOWN: value behind Settings > System > For developers > End task."
+verified = ""
+
+[[tweak]]
+id = "taskbar-left"
+name = "Taskbar icons on the left"
+explain = "Moves Start and taskbar icons to the left edge, as in Windows 10."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = "TaskbarAl"
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar > Taskbar alignment."
+verified = ""
+
+[[tweak]]
+id = "task-view-off"
+name = "Hide the Task View button"
+explain = "Removes the Task View button. Win+Tab still works."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = "ShowTaskViewButton"
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar > Task view."
+verified = ""
+
+[[tweak]]
+id = "search-icon"
+name = "Search as an icon"
+explain = "Replaces the wide search box with a single search icon."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Search'
+value = "SearchboxTaskbarMode"
+on = "1"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar > Search."
+verified = ""
+
+[[tweak]]
+id = "widgets-off"
+name = "Hide Widgets"
+explain = "Removes the Widgets button. On recent builds Windows may block apps from changing this; the app then says so and changes nothing."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = "TaskbarDa"
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar > Widgets; writes may be denied on 22631+ (UNVERIFIED)."
+verified = ""
+
+# ---------------- Added 2026-11-17 ----------------
+
+[[tweak]]
+id = "online-speech-off"
+name = "No online speech recognition"
+explain = "Voice typing and dictation stop sending audio to Microsoft. Offline speech still works."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy'
+value = 'HasAccepted'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > Speech."
+verified = ""
+
+[[tweak]]
+id = "inking-collection-off"
+name = "No inking data collection"
+explain = "Windows stops collecting handwriting samples to personalise recognition."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\InputPersonalization'
+value = 'RestrictImplicitInkCollection'
+on = "1"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > Inking & typing personalization."
+verified = ""
+
+[[tweak]]
+id = "typing-collection-off"
+name = "No typing data collection"
+explain = "Windows stops building a personal dictionary from what you type."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\InputPersonalization'
+value = 'RestrictImplicitTextCollection'
+on = "1"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > Inking & typing personalization."
+verified = ""
+
+[[tweak]]
+id = "typing-insights-off"
+name = "No typing insights"
+explain = "Turns off the typing statistics Windows keeps about your keyboard use."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\input\Settings'
+value = 'InsightsEnabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Time & language > Typing > Typing insights."
+verified = ""
+
+[[tweak]]
+id = "feedback-prompts-off"
+name = "No feedback prompts"
+explain = "Windows stops asking for your opinion in pop-up surveys."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Siuf\Rules'
+value = 'NumberOfSIUFInPeriod'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > Diagnostics & feedback > Feedback frequency."
+verified = ""
+
+[[tweak]]
+id = "track-apps-off"
+name = "Don't track app launches"
+explain = "Start and search stop ranking apps by how often you open them."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'Start_TrackProgs'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > General > app launches."
+verified = ""
+
+[[tweak]]
+id = "recent-files-start-off"
+name = "No recent files in Start"
+explain = "Start, Jump Lists and File Explorer stop listing recently opened files."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'Start_TrackDocs'
+on = "0"
+restart = "explorer"
+evidence = "KNOWN: value behind Settings > Personalization > Start > recently opened items."
+verified = ""
+
+[[tweak]]
+id = "start-recommendations-off"
+name = "No tips and app recommendations in Start"
+explain = "Start stops recommending tips, shortcuts and new apps."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'Start_IrisRecommendations'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Start > recommendations for tips."
+verified = ""
+
+[[tweak]]
+id = "start-account-notices-off"
+name = "No account notices in Start"
+explain = "Start stops showing Microsoft account reminders and offers."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'Start_AccountNotifications'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Start > account-related notifications."
+verified = ""
+
+[[tweak]]
+id = "welcome-experience-off"
+name = "No Windows welcome experience"
+explain = "Windows stops showing the welcome screen after updates."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+value = 'SubscribedContent-310093Enabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > System > Notifications > Show the Windows welcome experience."
+verified = ""
+
+[[tweak]]
+id = "finish-setup-off"
+name = "No 'finish setting up' nags"
+explain = "Windows stops asking you to finish setting up your device with Microsoft services."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement'
+value = 'ScoobeSystemSettingEnabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > System > Notifications > Suggest ways to finish setting up."
+verified = ""
+
+[[tweak]]
+id = "settings-account-notices-off"
+name = "No account notices in Settings"
+explain = "Settings stops showing Microsoft account suggestions on its home page."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\SystemSettings\AccountNotifications'
+value = 'EnableAccountNotifications'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > General > account notifications."
+verified = ""
+
+[[tweak]]
+id = "sync-provider-ads-off"
+name = "No OneDrive ads in File Explorer"
+explain = "File Explorer stops showing sync provider notifications and offers."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'ShowSyncProviderNotifications'
+on = "0"
+restart = "explorer"
+evidence = "KNOWN: value behind Folder Options > Show sync provider notifications."
+verified = ""
+
+[[tweak]]
+id = "cloud-search-msa-off"
+name = "No Microsoft account cloud search"
+explain = "Windows search stops including results from your Microsoft account."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\SearchSettings'
+value = 'IsMSACloudSearchEnabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > Search permissions > Cloud content search."
+verified = ""
+
+[[tweak]]
+id = "cloud-search-work-off"
+name = "No work account cloud search"
+explain = "Windows search stops including results from a work or school account."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\SearchSettings'
+value = 'IsAADCloudSearchEnabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > Search permissions > Cloud content search."
+verified = ""
+
+[[tweak]]
+id = "search-history-off"
+name = "No search history on this device"
+explain = "Windows search stops remembering what you searched for."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\SearchSettings'
+value = 'IsDeviceSearchHistoryEnabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > Search permissions > Search history."
+verified = ""
+
+[[tweak]]
+id = "search-highlights-off"
+name = "No search highlights"
+explain = "The search box stops showing daily highlights and trending content."
+category = "Privacy"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\SearchSettings'
+value = 'IsDynamicSearchBoxEnabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > Search permissions > Show search highlights."
+verified = ""
+
+[[tweak]]
+id = "language-list-off"
+name = "Don't share your language list with websites"
+explain = "Websites can't read your Windows language list to tailor content."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Control Panel\International\User Profile'
+value = 'HttpAcceptLanguageOptOut'
+on = "1"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Privacy & security > General > language list."
+verified = ""
+
+[[tweak]]
+id = "lockscreen-spotlight-off"
+name = "No Windows Spotlight on the lock screen"
+explain = "The lock screen stops downloading Spotlight pictures and promotions."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+value = 'RotatingLockScreenEnabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: ContentDeliveryManager value; undocumented by Microsoft."
+verified = ""
+
+[[tweak]]
+id = "activity-history-off"
+name = "No activity history"
+explain = "Windows stops recording the apps and files you use for Timeline-style features."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKLM"
+key = 'SOFTWARE\Policies\Microsoft\Windows\System'
+value = 'PublishUserActivities'
+on = "0"
+needs_admin = true
+restart = "none"
+evidence = "DOC: Group Policy 'Allow publishing of User Activities'."
+verified = ""
+
+[[tweak]]
+id = "location-off"
+name = "Location off for apps"
+explain = "Apps can't use your location. Turn it back on here or in Settings."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_sz"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location'
+value = 'Value'
+on = "Deny"
+restart = "none"
+evidence = "KNOWN: per-user consent value behind Settings > Privacy & security > Location."
+verified = ""
+
+[[tweak]]
+id = "app-diagnostics-off"
+name = "Apps can't read app diagnostics"
+explain = "Other apps can't read diagnostic information about your apps."
+category = "Privacy"
+tier = "Optional"
+kind = "reg_sz"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\appDiagnostics'
+value = 'Value'
+on = "Deny"
+restart = "none"
+evidence = "KNOWN: per-user consent value behind Settings > Privacy & security > App diagnostics."
+verified = ""
+
+[[tweak]]
+id = "compact-view"
+name = "Compact view in File Explorer"
+explain = "Less space between items, so more files fit on screen."
+category = "Explorer"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'UseCompactMode'
+on = "1"
+restart = "explorer"
+evidence = "KNOWN: value behind File Explorer > View > Compact view."
+verified = ""
+
+[[tweak]]
+id = "full-path-title"
+name = "Full path in the title bar"
+explain = "File Explorer shows the full folder path in its title."
+category = "Explorer"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\CabinetState'
+value = 'FullPath'
+on = "1"
+restart = "explorer"
+evidence = "KNOWN: value behind Folder Options > Display the full path in the title bar."
+verified = ""
+
+[[tweak]]
+id = "quick-access-frequent-off"
+name = "No frequent folders in Quick access"
+explain = "Quick access stops adding folders you open often."
+category = "Explorer"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer'
+value = 'ShowFrequent'
+on = "0"
+restart = "explorer"
+evidence = "KNOWN: value behind Folder Options > Show frequently used folders."
+verified = ""
+
+[[tweak]]
+id = "quick-access-recent-off"
+name = "No recent files in Quick access"
+explain = "Quick access stops listing recently opened files."
+category = "Explorer"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer'
+value = 'ShowRecent'
+on = "0"
+restart = "explorer"
+evidence = "KNOWN: value behind Folder Options > Show recently used files."
+verified = ""
+
+[[tweak]]
+id = "nav-expand"
+name = "Expand to the open folder"
+explain = "The navigation pane follows you into the folder you're viewing."
+category = "Explorer"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'NavPaneExpandToCurrentFolder'
+on = "1"
+restart = "explorer"
+evidence = "KNOWN: value behind Folder Options > Expand to open folder."
+verified = ""
+
+[[tweak]]
+id = "item-checkboxes"
+name = "Checkboxes to select files"
+explain = "Shows a checkbox on each item, handy for selecting several files."
+category = "Explorer"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'AutoCheckSelect'
+on = "1"
+restart = "explorer"
+evidence = "KNOWN: value behind File Explorer > View > Show > Item check boxes."
+verified = ""
+
+[[tweak]]
+id = "this-pc-desktop"
+name = "This PC on the desktop"
+explain = "Adds the This PC icon to the desktop."
+category = "Explorer"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel'
+value = '{20D04FE0-3AEA-1069-A2D8-08002B30309D}'
+on = "0"
+restart = "explorer"
+evidence = "KNOWN: value behind Settings > Personalization > Themes > Desktop icon settings."
+verified = ""
+
+[[tweak]]
+id = "gallery-off"
+name = "Hide Gallery in File Explorer"
+explain = "Removes Gallery from the navigation pane."
+category = "Explorer"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Classes\CLSID\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}'
+value = 'System.IsPinnedToNameSpaceTree'
+on = "0"
+restart = "explorer"
+evidence = "KNOWN: per-user namespace pin value; undocumented by Microsoft."
+verified = ""
+
+[[tweak]]
+id = "chat-button-off"
+name = "Hide the Chat button"
+explain = "Removes the Teams Chat button from the taskbar."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'TaskbarMn'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar > Chat."
+verified = ""
+
+[[tweak]]
+id = "copilot-button-off"
+name = "Hide the Copilot button"
+explain = "Removes the Copilot button from the taskbar."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'ShowCopilotButton'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar > Copilot."
+verified = ""
+
+[[tweak]]
+id = "clock-seconds"
+name = "Seconds in the taskbar clock"
+explain = "The clock shows seconds. Uses a little more power."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'ShowSecondsInSystemClock'
+on = "1"
+restart = "explorer"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar behaviors > Show seconds."
+verified = ""
+
+[[tweak]]
+id = "never-combine"
+name = "Never combine taskbar buttons"
+explain = "Each window gets its own labelled button."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'TaskbarGlomLevel'
+on = "2"
+restart = "explorer"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar behaviors > Combine taskbar buttons."
+verified = ""
+
+[[tweak]]
+id = "start-more-pins"
+name = "More pins in Start"
+explain = "Start shows more pinned apps and fewer recommendations."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'Start_Layout'
+on = "1"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Start > Layout."
+verified = ""
+
+[[tweak]]
+id = "snap-flyout-off"
+name = "No snap layouts on the maximise button"
+explain = "Hovering the maximise button no longer opens the snap layouts flyout."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'EnableSnapAssistFlyout'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > System > Multitasking > Snap windows."
+verified = ""
+
+[[tweak]]
+id = "show-desktop-corner-off"
+name = "No show-desktop corner"
+explain = "Clicking the far right of the taskbar no longer minimises everything."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'TaskbarSd'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar behaviors > far corner."
+verified = ""
+
+[[tweak]]
+id = "taskbar-badges-off"
+name = "No badges on taskbar apps"
+explain = "Unread counts and other badges stop appearing on taskbar icons."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'TaskbarBadges'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar behaviors > Show badges."
+verified = ""
+
+[[tweak]]
+id = "taskbar-flashing-off"
+name = "No flashing taskbar apps"
+explain = "Apps can't flash their taskbar button to get your attention."
+category = "Taskbar"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+value = 'TaskbarFlashing'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Personalization > Taskbar behaviors > Show flashing."
+verified = ""
+
+[[tweak]]
+id = "background-apps-off"
+name = "Stop background apps"
+explain = "Store apps stop running in the background. Some may miss notifications."
+category = "Performance"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications'
+value = 'GlobalUserDisabled'
+on = "1"
+restart = "none"
+evidence = "KNOWN: per-user value behind background app permissions."
+verified = ""
+
+[[tweak]]
+id = "game-dvr-off"
+name = "No background game recording"
+explain = "Game Bar stops recording gameplay in the background."
+category = "Performance"
+tier = "Recommended"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'System\GameConfigStore'
+value = 'GameDVR_Enabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Gaming > Captures > Record what happened."
+verified = ""
+
+[[tweak]]
+id = "app-capture-off"
+name = "No game capture"
+explain = "Turns off Game Bar captures for games and apps."
+category = "Performance"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\GameDVR'
+value = 'AppCaptureEnabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Gaming > Captures."
+verified = ""
+
+[[tweak]]
+id = "controller-gamebar-off"
+name = "Controller button doesn't open Game Bar"
+explain = "The Xbox button on a controller no longer opens Game Bar."
+category = "Performance"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\GameBar'
+value = 'UseNexusForGameBarEnabled'
+on = "0"
+restart = "none"
+evidence = "KNOWN: value behind Settings > Gaming > Game Bar controller option."
+verified = ""
+
+[[tweak]]
+id = "system-responsiveness"
+name = "More CPU for games and media"
+explain = "Multimedia scheduling reserves less CPU for background tasks (10% instead of 20%)."
+category = "Performance"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile'
+value = 'SystemResponsiveness'
+on = "10"
+needs_admin = true
+restart = "reboot"
+evidence = "DOC: Multimedia Class Scheduler Service, SystemResponsiveness."
+verified = ""
+
+[[tweak]]
+id = "foreground-priority"
+name = "Favour the app in front"
+explain = "Windows gives the active window's program longer slices of CPU time."
+category = "Performance"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKLM"
+key = 'SYSTEM\CurrentControlSet\Control\PriorityControl'
+value = 'Win32PrioritySeparation'
+on = "38"
+needs_admin = true
+restart = "reboot"
+evidence = "DOC: Win32PrioritySeparation; 38 = short, variable quanta, foreground boost."
+verified = ""
+
+[[tweak]]
+id = "fast-startup-off"
+name = "Turn off fast startup"
+explain = "Shut down fully instead of hibernating the system. Fixes some driver and dual-boot issues; startup is a little slower."
+category = "Performance"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKLM"
+key = 'SYSTEM\CurrentControlSet\Control\Session Manager\Power'
+value = 'HiberbootEnabled'
+on = "0"
+needs_admin = true
+restart = "reboot"
+evidence = "KNOWN: value behind Power Options > Turn on fast startup."
+verified = ""
+
+[[tweak]]
+id = "visual-effects-performance"
+name = "Visual effects for best performance"
+explain = "Uses Windows' 'Adjust for best performance' preset. Fonts stay smooth."
+category = "Performance"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKCU"
+key = 'Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects'
+value = 'VisualFXSetting'
+on = "2"
+restart = "signout"
+evidence = "KNOWN: value behind System Properties > Performance Options."
+verified = ""
+
+[[tweak]]
+id = "window-animations-off"
+name = "No window open and close animations"
+explain = "Windows appear and disappear instantly."
+category = "Performance"
+tier = "Optional"
+kind = "reg_sz"
+hive = "HKCU"
+key = 'Control Panel\Desktop\WindowMetrics'
+value = 'MinAnimate'
+on = "0"
+restart = "signout"
+evidence = "DOC: SPI_SETANIMATION; per-user value MinAnimate."
+verified = ""
+
+[[tweak]]
+id = "hover-faster"
+name = "Faster hover tooltips"
+explain = "Tooltips and hover previews appear after 100 ms instead of 400 ms."
+category = "Performance"
+tier = "Optional"
+kind = "reg_sz"
+hive = "HKCU"
+key = 'Control Panel\Mouse'
+value = 'MouseHoverTime'
+on = "100"
+restart = "signout"
+evidence = "DOC: SPI_SETMOUSEHOVERTIME; per-user value MouseHoverTime."
+verified = ""
+
+[[tweak]]
+id = "hibernate-off"
+name = "Turn off hibernation"
+explain = "Removes hiberfil.sys, which is often several GB on C:. You lose hibernate and fast startup."
+category = "Storage"
+tier = "Optional"
+kind = "reg_dword"
+hive = "HKLM"
+key = 'SYSTEM\CurrentControlSet\Control\Power'
+value = 'HibernateEnabled'
+on = "0"
+needs_admin = true
+restart = "reboot"
+evidence = "KNOWN: value set by powercfg /hibernate off. Size comes from your scan."
+verified = ""
+
+[[tweak]]
+id = "sticky-keys-prompt-off"
+name = "No Sticky Keys prompt"
+explain = "Pressing Shift five times no longer opens the Sticky Keys prompt. Sticky Keys itself still works from Settings."
+category = "Accessibility"
+tier = "Optional"
+kind = "reg_sz"
+hive = "HKCU"
+key = 'Control Panel\Accessibility\StickyKeys'
+value = 'Flags'
+on = "506"
+restart = "signout"
+evidence = "DOC: STICKYKEYS flags; 506 clears SKF_HOTKEYACTIVE."
+verified = ""
+
+[[tweak]]
+id = "filter-keys-prompt-off"
+name = "No Filter Keys prompt"
+explain = "Holding right Shift for eight seconds no longer opens the Filter Keys prompt."
+category = "Accessibility"
+tier = "Optional"
+kind = "reg_sz"
+hive = "HKCU"
+key = 'Control Panel\Accessibility\Keyboard Response'
+value = 'Flags'
+on = "122"
+restart = "signout"
+evidence = "DOC: FILTERKEYS flags; 122 clears FKF_HOTKEYACTIVE."
+verified = ""
+
+[[tweak]]
+id = "toggle-keys-prompt-off"
+name = "No Toggle Keys prompt"
+explain = "Holding Num Lock for five seconds no longer turns on Toggle Keys."
+category = "Accessibility"
+tier = "Optional"
+kind = "reg_sz"
+hive = "HKCU"
+key = 'Control Panel\Accessibility\ToggleKeys'
+value = 'Flags'
+on = "58"
+restart = "signout"
+evidence = "DOC: TOGGLEKEYS flags; 58 clears TKF_HOTKEYACTIVE."
+verified = ""

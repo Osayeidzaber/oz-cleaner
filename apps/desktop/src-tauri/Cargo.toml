@@ -11,6 +11,7 @@ oz-layout = { path = "../../../crates/oz-layout" }
 oz-win = { path = "../../../crates/oz-win" }
 oz-rules = { path = "../../../crates/oz-rules" }
 oz-ops = { path = "../../../crates/oz-ops" }
+oz-tweaks = { path = "../../../crates/oz-tweaks" }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

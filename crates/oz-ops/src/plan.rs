@@ -90,7 +90,15 @@ pub fn reason_text(code: u32) -> String {
 }
 
 fn skip(i: &Item, reason: impl Into<String>) -> ItemResult {
-    ItemResult { path: i.path.clone(), method: i.method, outcome: Outcome::Skipped, reason: reason.into(), bytes: 0, denied: false, held_at: None }
+    ItemResult {
+        path: i.path.clone(),
+        method: i.method,
+        outcome: Outcome::Skipped,
+        reason: reason.into(),
+        bytes: 0,
+        denied: false,
+        held_at: None,
+    }
 }
 
 /// Pre-flight re-check. Returns the fresh metadata or why the item was skipped.
@@ -120,12 +128,21 @@ pub fn hold_root(path: &str, op: &str) -> Option<String> {
     if b.len() < 3 || b[1] != b':' {
         return None;
     }
-    let clean: String = op.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').collect();
+    let clean: String = op
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+        .collect();
     Some(format!("{}:\\OzHold\\{clean}", b[0] as char))
 }
 
 /// Runs a plan. `ledger_dir` receives an append-only record before and after.
-pub fn execute(plan: &Plan, g: &Guard, ledger_dir: Option<&str>, stop: &AtomicBool, mut on_result: impl FnMut(&ItemResult)) -> Report {
+pub fn execute(
+    plan: &Plan,
+    g: &Guard,
+    ledger_dir: Option<&str>,
+    stop: &AtomicBool,
+    mut on_result: impl FnMut(&ItemResult),
+) -> Report {
     let mut results = Vec::new();
     let mut hold_seq = 0u32;
     let mut cancelled = false;
@@ -141,7 +158,11 @@ pub fn execute(plan: &Plan, g: &Guard, ledger_dir: Option<&str>, stop: &AtomicBo
         on_result(&r);
         results.push(r);
     }
-    Report { id: plan.id.clone(), results, cancelled }
+    Report {
+        id: plan.id.clone(),
+        results,
+        cancelled,
+    }
 }
 
 fn run_item(plan: &Plan, item: &Item, g: &Guard, stop: &AtomicBool, seq: &mut u32) -> ItemResult {
@@ -162,7 +183,10 @@ fn run_item(plan: &Plan, item: &Item, g: &Guard, stop: &AtomicBool, seq: &mut u3
                 Ok(()) if !fsops::exists(&item.path) => done(item, meta.size, Outcome::Done),
                 Ok(()) => skip(item, "Windows did not recycle it"),
                 Err(e) => {
-                    let mut r = skip(item, format!("Could not recycle ({e}); nothing was deleted"));
+                    let mut r = skip(
+                        item,
+                        format!("Could not recycle ({e}); nothing was deleted"),
+                    );
                     r.denied = e == fsops::ERR_ACCESS_DENIED;
                     r
                 }
@@ -173,7 +197,15 @@ fn run_item(plan: &Plan, item: &Item, g: &Guard, stop: &AtomicBool, seq: &mut u3
 }
 
 fn done(i: &Item, bytes: u64, o: Outcome) -> ItemResult {
-    ItemResult { path: i.path.clone(), method: i.method, outcome: o, reason: String::new(), bytes, denied: false, held_at: None }
+    ItemResult {
+        path: i.path.clone(),
+        method: i.method,
+        outcome: o,
+        reason: String::new(),
+        bytes,
+        denied: false,
+        held_at: None,
+    }
 }
 
 fn permanent(item: &Item, g: &Guard, stop: &AtomicBool, m: Meta) -> ItemResult {
@@ -192,11 +224,9 @@ fn permanent(item: &Item, g: &Guard, stop: &AtomicBool, m: Meta) -> ItemResult {
             if g.check(&child).is_err() {
                 continue;
             }
-            if item.min_age_days > 0 {
-                if newest(&child, cutoff) {
-                    young += 1;
-                    continue;
-                }
+            if item.min_age_days > 0 && newest(&child, cutoff) {
+                young += 1;
+                continue;
             }
             fsops::remove_tree_report(&child, &halted, &mut |b| bytes += b, &mut fails);
         }
@@ -205,12 +235,26 @@ fn permanent(item: &Item, g: &Guard, stop: &AtomicBool, m: Meta) -> ItemResult {
         fsops::remove_tree_report(&item.path, &halted, &mut |b| bytes += b, &mut fails);
     }
     let denied = fails.iter().any(|f| f.1 == fsops::ERR_ACCESS_DENIED);
-    let mut r = done(item, bytes, if fails.is_empty() { Outcome::Done } else { Outcome::Partial });
+    let mut r = done(
+        item,
+        bytes,
+        if fails.is_empty() {
+            Outcome::Done
+        } else {
+            Outcome::Partial
+        },
+    );
     r.denied = denied;
     let mut notes = Vec::new();
     if !fails.is_empty() {
-        let in_use = fails.iter().filter(|f| matches!(f.1, fsops::ERR_SHARING | fsops::ERR_LOCK)).count();
-        let den = fails.iter().filter(|f| f.1 == fsops::ERR_ACCESS_DENIED).count();
+        let in_use = fails
+            .iter()
+            .filter(|f| matches!(f.1, fsops::ERR_SHARING | fsops::ERR_LOCK))
+            .count();
+        let den = fails
+            .iter()
+            .filter(|f| f.1 == fsops::ERR_ACCESS_DENIED)
+            .count();
         if in_use > 0 {
             notes.push(format!("{in_use} in use"));
         }
@@ -219,7 +263,16 @@ fn permanent(item: &Item, g: &Guard, stop: &AtomicBool, m: Meta) -> ItemResult {
         }
         let other = fails.len() - in_use - den;
         if other > 0 {
-            notes.push(format!("{other} other: {}", reason_text(fails.iter().find(|f| !matches!(f.1, 5 | 32 | 33)).map(|f| f.1).unwrap_or(0))));
+            notes.push(format!(
+                "{other} other: {}",
+                reason_text(
+                    fails
+                        .iter()
+                        .find(|f| !matches!(f.1, 5 | 32 | 33))
+                        .map(|f| f.1)
+                        .unwrap_or(0)
+                )
+            ));
         }
     }
     if young > 0 {
@@ -232,29 +285,41 @@ fn permanent(item: &Item, g: &Guard, stop: &AtomicBool, m: Meta) -> ItemResult {
 /// True if the item or anything beneath it was modified after `cutoff`.
 /// Unreadable items count as recent, which keeps them.
 fn newest(path: &str, cutoff: i64) -> bool {
-    let Ok(m) = fsops::meta(path) else { return true };
+    let Ok(m) = fsops::meta(path) else {
+        return true;
+    };
     if m.modified > cutoff {
         return true;
     }
     if m.attrs & fsops::ATTR_DIR == 0 || m.attrs & fsops::ATTR_REPARSE != 0 {
         return false;
     }
-    let Ok(names) = fsops::list_dir(path) else { return true };
-    names.iter().any(|n| newest(&format!("{}\\{n}", path.trim_end_matches('\\')), cutoff))
+    let Ok(names) = fsops::list_dir(path) else {
+        return true;
+    };
+    names
+        .iter()
+        .any(|n| newest(&format!("{}\\{n}", path.trim_end_matches('\\')), cutoff))
 }
 
 fn hold(plan: &Plan, item: &Item, seq: &mut u32, m: Meta) -> ItemResult {
     if item.contents_only {
         return skip(item, "Holding Area applies to whole items only");
     }
-    let Some(root) = hold_root(&item.path, &plan.id) else { return skip(item, "Not a local path") };
+    let Some(root) = hold_root(&item.path, &plan.id) else {
+        return skip(item, "Not a local path");
+    };
     if let Err(e) = fsops::create_dirs(&root) {
-        return skip(item, format!("Could not create Holding Area: {}", reason_text(e)));
+        return skip(
+            item,
+            format!("Could not create Holding Area: {}", reason_text(e)),
+        );
     }
     *seq += 1;
     let dest = format!("{root}\\{:06}", *seq);
     // Manifest entry first: an interrupted move can still be traced.
-    let line = serde_json::json!({"from": item.path, "to": dest, "bytes": item.estimated}).to_string();
+    let line =
+        serde_json::json!({"from": item.path, "to": dest, "bytes": item.estimated}).to_string();
     if ledger::append_line(&format!("{root}\\manifest.jsonl"), &line).is_err() {
         return skip(item, "Could not write Holding Area manifest");
     }
@@ -290,7 +355,11 @@ pub fn restore(from_hold: &str, original: &str) -> Result<(), String> {
 pub fn purge_hold(root: &str) -> Result<(), String> {
     let p = root.trim_end_matches('\\');
     let b = p.as_bytes();
-    let shape = b.len() > 11 && b[1] == b':' && p[2..].starts_with("\\OzHold\\") && !p[10..].contains('\\') && !p.contains("..");
+    let shape = b.len() > 11
+        && b[1] == b':'
+        && p[2..].starts_with("\\OzHold\\")
+        && !p[10..].contains('\\')
+        && !p.contains("..");
     if !shape {
         return Err("Not a Holding Area operation folder".into());
     }
@@ -322,20 +391,45 @@ mod tests {
 
     /// A guard that treats the temp folder as ordinary user space.
     fn guard() -> Guard {
-        Guard::new(r"C:\Windows", r"C:\NoSuchUsers\me", &[r"C:\Program Files"], r"C:\ProgramData")
+        Guard::new(
+            r"C:\Windows",
+            r"C:\NoSuchUsers\me",
+            &[r"C:\Program Files"],
+            r"C:\ProgramData",
+        )
     }
 
     fn item(path: &str, method: Method) -> Item {
-        Item { path: path.into(), method, contents_only: false, min_age_days: 0, expect_modified: None, estimated: 0, rule: None }
+        Item {
+            path: path.into(),
+            method,
+            contents_only: false,
+            min_age_days: 0,
+            expect_modified: None,
+            estimated: 0,
+            rule: None,
+        }
     }
 
     fn run(items: Vec<Item>) -> Report {
-        execute(&Plan { id: "t".into(), items }, &guard(), None, &AtomicBool::new(false), |_| {})
+        execute(
+            &Plan {
+                id: "t".into(),
+                items,
+            },
+            &guard(),
+            None,
+            &AtomicBool::new(false),
+            |_| {},
+        )
     }
 
     #[test]
     fn refuses_protected_in_execute() {
-        let r = run(vec![item(r"C:\Windows\System32\drivers\etc\hosts", Method::Permanent)]);
+        let r = run(vec![item(
+            r"C:\Windows\System32\drivers\etc\hosts",
+            Method::Permanent,
+        )]);
         assert_eq!(r.results[0].outcome, Outcome::Skipped);
         assert!(r.results[0].reason.starts_with("Refused"));
         assert!(fsops::exists(r"C:\Windows\System32\drivers\etc\hosts"));
@@ -387,7 +481,10 @@ mod tests {
         i.expect_modified = Some((t as f64) as i64);
         assert!(preflight(&guard(), &i).is_ok());
         i.expect_modified = Some(t - 10_000_000); // one second earlier: a real change
-        assert_eq!(preflight(&guard(), &i).unwrap_err(), "Changed since the scan");
+        assert_eq!(
+            preflight(&guard(), &i).unwrap_err(),
+            "Changed since the scan"
+        );
     }
 
     #[test]
@@ -448,7 +545,13 @@ mod tests {
         use std::os::windows::fs::OpenOptionsExt;
         let s = Scratch::new("lk");
         fs::write(s.p("free"), b"1").unwrap();
-        let h = fs::OpenOptions::new().create(true).truncate(true).write(true).share_mode(0).open(s.p("lock")).unwrap();
+        let h = fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .share_mode(0)
+            .open(s.p("lock"))
+            .unwrap();
         let mut i = item(&s.0, Method::Permanent);
         i.contents_only = true;
         let r = run(vec![i]);
@@ -463,7 +566,16 @@ mod tests {
         let s = Scratch::new("st");
         fs::write(s.p("f"), b"1").unwrap();
         let stop = AtomicBool::new(true);
-        let r = execute(&Plan { id: "t".into(), items: vec![item(&s.p("f"), Method::Permanent)] }, &guard(), None, &stop, |_| {});
+        let r = execute(
+            &Plan {
+                id: "t".into(),
+                items: vec![item(&s.p("f"), Method::Permanent)],
+            },
+            &guard(),
+            None,
+            &stop,
+            |_| {},
+        );
         assert!(r.cancelled);
         assert!(fsops::exists(&s.p("f")));
     }
@@ -472,7 +584,13 @@ mod tests {
     fn hold_root_and_purge_shape() {
         assert_eq!(hold_root(r"E:\a\b", "op-1").unwrap(), r"E:\OzHold\op-1");
         assert_eq!(hold_root(r"\\?\E:\a", "o/../p").unwrap(), r"E:\OzHold\op");
-        for bad in [r"E:\OzHold", r"E:\OzHold\", r"E:\Other\x", r"E:\OzHold\a\b", r"E:\OzHold\..\Windows"] {
+        for bad in [
+            r"E:\OzHold",
+            r"E:\OzHold\",
+            r"E:\Other\x",
+            r"E:\OzHold\a\b",
+            r"E:\OzHold\..\Windows",
+        ] {
             assert!(purge_hold(bad).is_err(), "{bad}");
         }
     }

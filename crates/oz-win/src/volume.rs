@@ -55,12 +55,21 @@ pub fn list() -> Vec<Volume> {
         if ok == 0 {
             continue;
         }
-        let Some((total, free)) = free_space(&root) else { continue };
+        let Some((total, free)) = free_space(&root) else {
+            continue;
+        };
         let s = |b: &[u16]| {
             let n = b.iter().position(|&c| c == 0).unwrap_or(b.len());
             String::from_utf16_lossy(&b[..n])
         };
-        out.push(Volume { root, label: s(&label), fs: s(&fsn), kind, total, free });
+        out.push(Volume {
+            root,
+            label: s(&label),
+            fs: s(&fsn),
+            kind,
+            total,
+            free,
+        });
     }
     out
 }

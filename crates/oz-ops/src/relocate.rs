@@ -26,15 +26,28 @@ struct Tree {
 }
 
 fn walk(root: &str, rel: &str, t: &mut Tree) -> Result<(), String> {
-    let full = if rel.is_empty() { root.to_string() } else { format!("{root}\\{rel}") };
+    let full = if rel.is_empty() {
+        root.to_string()
+    } else {
+        format!("{root}\\{rel}")
+    };
     for n in fsops::list_dir(&full).map_err(|e| format!("Cannot read {full}: {e}"))? {
-        let r = if rel.is_empty() { n.clone() } else { format!("{rel}\\{n}") };
-        let m = fsops::meta(&format!("{root}\\{r}")).map_err(|e| format!("Cannot read {r}: {e}"))?;
+        let r = if rel.is_empty() {
+            n.clone()
+        } else {
+            format!("{rel}\\{n}")
+        };
+        let m =
+            fsops::meta(&format!("{root}\\{r}")).map_err(|e| format!("Cannot read {r}: {e}"))?;
         if m.attrs & fsops::ATTR_RECALL != 0 {
-            return Err(format!("{r} is a cloud placeholder; cloud folders can't be relocated"));
+            return Err(format!(
+                "{r} is a cloud placeholder; cloud folders can't be relocated"
+            ));
         }
         if m.attrs & fsops::ATTR_REPARSE != 0 {
-            return Err(format!("{r} is a link; folders containing links can't be relocated"));
+            return Err(format!(
+                "{r} is a link; folders containing links can't be relocated"
+            ));
         }
         if m.attrs & fsops::ATTR_DIR != 0 {
             t.dirs.push(r.clone());
@@ -60,11 +73,18 @@ fn hash(path: &str) -> Result<blake3::Hash, String> {
 }
 
 /// Moves `source` to `dest_parent\<name>`. `on_progress(done_bytes, total_bytes)`.
-pub fn relocate(g: &Guard, source: &str, dest_parent: &str, stop: &AtomicBool, mut on_progress: impl FnMut(u64, u64)) -> Result<Relocated, String> {
+pub fn relocate(
+    g: &Guard,
+    source: &str,
+    dest_parent: &str,
+    stop: &AtomicBool,
+    mut on_progress: impl FnMut(u64, u64),
+) -> Result<Relocated, String> {
     let source = source.trim_end_matches('\\').to_string();
     let dest_parent = dest_parent.trim_end_matches('\\').to_string();
     g.check(&source).map_err(|r| format!("Refused: {}", r.0))?;
-    g.check(&format!("{dest_parent}\\x")).map_err(|r| format!("Refused destination: {}", r.0))?;
+    g.check(&format!("{dest_parent}\\x"))
+        .map_err(|r| format!("Refused destination: {}", r.0))?;
     let m = fsops::meta(&source).map_err(|e| format!("Source: {}", crate::plan::reason_text(e)))?;
     if m.attrs & fsops::ATTR_DIR == 0 {
         return Err("Only folders can be relocated".into());
@@ -74,7 +94,10 @@ pub fn relocate(g: &Guard, source: &str, dest_parent: &str, stop: &AtomicBool, m
     }
     let name = source.rsplit('\\').next().unwrap_or("").to_string();
     let dest = format!("{dest_parent}\\{name}");
-    let (ls, ld) = (format!("{}\\", source.to_lowercase()), format!("{}\\", dest.to_lowercase()));
+    let (ls, ld) = (
+        format!("{}\\", source.to_lowercase()),
+        format!("{}\\", dest.to_lowercase()),
+    );
     if ld.starts_with(&ls) || ls.starts_with(&ld) {
         return Err("Destination overlaps the source".into());
     }
@@ -104,7 +127,10 @@ pub fn relocate(g: &Guard, source: &str, dest_parent: &str, stop: &AtomicBool, m
     // Rename fails if anything inside is open: that is the "nothing is using it" check.
     if let Err(e) = fsops::rename(&source, &old) {
         let _ = fsops::remove_tree(&dest, &|| false);
-        return Err(format!("The folder is in use, so nothing was changed ({})", crate::plan::reason_text(e)));
+        return Err(format!(
+            "The folder is in use, so nothing was changed ({})",
+            crate::plan::reason_text(e)
+        ));
     }
     let undo_rename = |why: String| {
         let _ = fsops::remove_link(&source);
@@ -112,7 +138,14 @@ pub fn relocate(g: &Guard, source: &str, dest_parent: &str, stop: &AtomicBool, m
         if renamed {
             let _ = fsops::remove_tree(&dest, &|| false);
         }
-        format!("{why}. Rolled back: {}", if renamed { "source restored" } else { "RESTORE FAILED, data is safe at the .ozold folder and destination" })
+        format!(
+            "{why}. Rolled back: {}",
+            if renamed {
+                "source restored"
+            } else {
+                "RESTORE FAILED, data is safe at the .ozold folder and destination"
+            }
+        )
     };
     if let Err(e) = fsops::create_junction(&source, &dest) {
         return Err(undo_rename(format!("Could not create junction: {e}")));
@@ -125,10 +158,23 @@ pub fn relocate(g: &Guard, source: &str, dest_parent: &str, stop: &AtomicBool, m
     if !probe_ok {
         return Err(undo_rename("Junction did not work".into()));
     }
-    Ok(Relocated { source, dest, old, files: t.files.len() as u64, bytes: total })
+    Ok(Relocated {
+        source,
+        dest,
+        old,
+        files: t.files.len() as u64,
+        bytes: total,
+    })
 }
 
-fn copy_and_verify(source: &str, dest: &str, t: &Tree, total: u64, stop: &AtomicBool, on_progress: &mut impl FnMut(u64, u64)) -> Result<(), String> {
+fn copy_and_verify(
+    source: &str,
+    dest: &str,
+    t: &Tree,
+    total: u64,
+    stop: &AtomicBool,
+    on_progress: &mut impl FnMut(u64, u64),
+) -> Result<(), String> {
     fsops::create_dirs(dest).map_err(|e| format!("Create destination: {e}"))?;
     for d in &t.dirs {
         fsops::create_dirs(&format!("{dest}\\{d}")).map_err(|e| format!("Create {d}: {e}"))?;
@@ -139,7 +185,8 @@ fn copy_and_verify(source: &str, dest: &str, t: &Tree, total: u64, stop: &Atomic
             return Err("Cancelled; source untouched".into());
         }
         let (a, b) = (format!("{source}\\{r}"), format!("{dest}\\{r}"));
-        fs::copy(oz_win::long_path(&a), oz_win::long_path(&b)).map_err(|e| format!("Copy {r}: {e}"))?;
+        fs::copy(oz_win::long_path(&a), oz_win::long_path(&b))
+            .map_err(|e| format!("Copy {r}: {e}"))?;
         done += size;
         on_progress(done, total);
     }
@@ -166,8 +213,9 @@ fn copy_and_verify(source: &str, dest: &str, t: &Tree, total: u64, stop: &Atomic
 
 /// Reverses a relocation while the original still exists as `.ozold`.
 pub fn undo(g: &Guard, r: &Relocated) -> Result<(), String> {
-    g.check(&r.source).map_err(|e| format!("Refused: {}", e.0))?;
-    let m = fsops::meta(&r.source).map_err(|e| crate::plan::reason_text(e))?;
+    g.check(&r.source)
+        .map_err(|e| format!("Refused: {}", e.0))?;
+    let m = fsops::meta(&r.source).map_err(crate::plan::reason_text)?;
     if m.attrs & fsops::ATTR_REPARSE == 0 {
         return Err("Source is no longer a junction".into());
     }
@@ -212,7 +260,12 @@ mod tests {
         }
     }
     fn g() -> Guard {
-        Guard::new(r"C:\Windows", r"C:\NoSuchUsers\me", &[r"C:\Program Files"], r"C:\ProgramData")
+        Guard::new(
+            r"C:\Windows",
+            r"C:\NoSuchUsers\me",
+            &[r"C:\Program Files"],
+            r"C:\ProgramData",
+        )
     }
     fn fill(root: &str) -> String {
         let src = format!("{root}\\data");
@@ -221,11 +274,15 @@ mod tests {
             deep.push_str("\\0123456789");
         }
         fsops::create_dirs(&deep).unwrap();
-        fs::write(oz_win::long_path(&format!("{deep}\\deep.bin")), vec![7u8; 5000]).unwrap();
+        fs::write(
+            oz_win::long_path(&format!("{deep}\\deep.bin")),
+            vec![7u8; 5000],
+        )
+        .unwrap();
         fs::write(format!("{src}\\a.txt"), b"hello").unwrap();
         src
     }
-    const NO: AtomicBool = AtomicBool::new(false);
+    static NO: AtomicBool = AtomicBool::new(false);
 
     #[test]
     fn roundtrip_with_long_paths() {
@@ -258,7 +315,11 @@ mod tests {
         use std::os::windows::fs::OpenOptionsExt;
         let (a, b) = (S::new("oa"), S::new("ob"));
         let src = fill(&a.0);
-        let h = fs::OpenOptions::new().read(true).share_mode(1).open(format!("{src}\\a.txt")).unwrap();
+        let h = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .open(format!("{src}\\a.txt"))
+            .unwrap();
         let e = relocate(&g(), &src, &b.0, &NO, |_, _| {}).unwrap_err();
         assert!(e.contains("in use"), "{e}");
         drop(h);

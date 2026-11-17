@@ -2,7 +2,9 @@
 //! handle is opened with GENERIC_READ and is never used to write (A-2).
 use crate::wide;
 use oz_model::{flag, IndexBuilder, NodeId, NONE, ROOT};
-use oz_ntfs::{apply_fixups, mft_runs, parse_record, Record, FILE_ATTR_REPARSE, TAG_MOUNT_POINT, TAG_SYMLINK};
+use oz_ntfs::{
+    apply_fixups, mft_runs, parse_record, Record, FILE_ATTR_REPARSE, TAG_MOUNT_POINT, TAG_SYMLINK,
+};
 use std::sync::atomic::{AtomicBool, Ordering};
 use windows_sys::Win32::Foundation::*;
 use windows_sys::Win32::Storage::FileSystem::*;
@@ -26,7 +28,15 @@ impl Vol {
         }
         let mut n = 0u32;
         // SAFETY: buffer valid for its length.
-        let ok = unsafe { ReadFile(self.0, buf.as_mut_ptr(), buf.len() as u32, &mut n, std::ptr::null_mut()) };
+        let ok = unsafe {
+            ReadFile(
+                self.0,
+                buf.as_mut_ptr(),
+                buf.len() as u32,
+                &mut n,
+                std::ptr::null_mut(),
+            )
+        };
         if ok == 0 {
             return Err(format!("read failed: {}", last()));
         }
@@ -40,7 +50,11 @@ fn last() -> u32 {
 }
 
 /// Streams every in-use record to `sink`. Requires administrator rights.
-pub fn read_records(letter: char, cancel: &AtomicBool, mut sink: impl FnMut(Record)) -> Result<u64, String> {
+pub fn read_records(
+    letter: char,
+    cancel: &AtomicBool,
+    mut sink: impl FnMut(Record),
+) -> Result<u64, String> {
     let path = wide(&format!(r"\\.\{letter}:"));
     // SAFETY: path is NUL-terminated.
     let h = unsafe {
@@ -81,7 +95,7 @@ pub fn read_records(letter: char, cancel: &AtomicBool, mut sink: impl FnMut(Reco
     let cluster = nv.BytesPerCluster as u64;
     let sector = nv.BytesPerSector as usize;
     let rec_size = nv.BytesPerFileRecordSegment as usize;
-    if cluster == 0 || sector == 0 || rec_size == 0 || rec_size % sector != 0 {
+    if cluster == 0 || sector == 0 || rec_size == 0 || !rec_size.is_multiple_of(sector) {
         return Err("unexpected volume geometry".into());
     }
 
@@ -229,9 +243,17 @@ impl Assembler {
             if no < 24 {
                 f |= flag::SYSTEM;
             }
-            let (lg, al) = if no == BADCLUS { (0, 0) } else { (r.logical, r.allocated) };
+            let (lg, al) = if no == BADCLUS {
+                (0, 0)
+            } else {
+                (r.logical, r.allocated)
+            };
             for (i, n) in r.names.iter().enumerate() {
-                let (fl, l, a) = if i == 0 { (f, lg, al) } else { (f | flag::HARDLINK, 0, 0) };
+                let (fl, l, a) = if i == 0 {
+                    (f, lg, al)
+                } else {
+                    (f | flag::HARDLINK, 0, 0)
+                };
                 let id = b.add(NONE, &n.name, l, a, r.modified, fl);
                 if i == 0 {
                     first[no] = id;
@@ -260,7 +282,13 @@ mod tests {
             has_std: base == 0,
             allocated: alloc,
             logical: alloc,
-            names: names.iter().map(|(p, n)| FileName { parent: *p, name: n.to_string() }).collect(),
+            names: names
+                .iter()
+                .map(|(p, n)| FileName {
+                    parent: *p,
+                    name: n.to_string(),
+                })
+                .collect(),
             ..Default::default()
         }
     }
@@ -283,7 +311,12 @@ mod tests {
         assert_eq!(ix.orphan_allocated, 7);
         let names: Vec<_> = ix.children(ROOT).iter().map(|&c| ix.name(c)).collect();
         assert_eq!(names[0], "one");
-        let jn = ix.children(ROOT).iter().copied().find(|&c| ix.name(c) == "junction").unwrap();
+        let jn = ix
+            .children(ROOT)
+            .iter()
+            .copied()
+            .find(|&c| ix.name(c) == "junction")
+            .unwrap();
         assert!(ix.flags(jn) & flag::LINK != 0);
     }
 

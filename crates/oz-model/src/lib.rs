@@ -48,7 +48,15 @@ impl IndexBuilder {
         self.parent.is_empty()
     }
 
-    pub fn add(&mut self, parent: NodeId, name: &str, logical: u64, allocated: u64, modified: i64, flags: u8) -> NodeId {
+    pub fn add(
+        &mut self,
+        parent: NodeId,
+        name: &str,
+        logical: u64,
+        allocated: u64,
+        modified: i64,
+        flags: u8,
+    ) -> NodeId {
         let id = self.parent.len() as NodeId;
         self.name_off.push(self.names.len() as u32);
         self.name_len.push(name.len() as u32);
@@ -116,9 +124,9 @@ impl IndexBuilder {
         let mut sub_logical = self.logical.clone();
         let mut sub_allocated = self.allocated.clone();
         let mut sub_files = vec![0u32; n];
-        for i in 0..n {
-            if self.flags[i] & flag::DIR == 0 {
-                sub_files[i] = 1;
+        for (f, fl) in sub_files.iter_mut().zip(&self.flags) {
+            if fl & flag::DIR == 0 {
+                *f = 1;
             }
         }
         let mut sub_modified = self.modified.clone();
@@ -132,7 +140,10 @@ impl IndexBuilder {
                 sub_modified[p] = sub_modified[p].max(sub_modified[i]);
             }
         }
-        let orphan_allocated = (0..n).filter(|&i| !seen[i]).map(|i| self.allocated[i]).sum();
+        let orphan_allocated = (0..n)
+            .filter(|&i| !seen[i])
+            .map(|i| self.allocated[i])
+            .sum();
 
         for i in 0..n {
             let s = &mut child_ids[child_start[i] as usize..child_start[i + 1] as usize];
@@ -263,20 +274,33 @@ impl Index {
 pub fn type_class(ext: Option<&str>) -> u8 {
     match ext.unwrap_or("") {
         "mp4" | "mkv" | "mov" | "avi" | "webm" | "wmv" | "m4v" | "mpg" | "mpeg" => 1,
-        "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp" | "tif" | "tiff" | "heic" | "raw" | "psd" | "svg" => 2,
+        "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp" | "tif" | "tiff" | "heic" | "raw"
+        | "psd" | "svg" => 2,
         "mp3" | "wav" | "flac" | "aac" | "ogg" | "m4a" | "wma" => 3,
-        "pdf" | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "txt" | "md" | "csv" | "epub" => 4,
+        "pdf" | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "txt" | "md" | "csv"
+        | "epub" => 4,
         "zip" | "7z" | "rar" | "tar" | "gz" | "xz" | "bz2" | "iso" | "cab" | "zst" => 5,
         "exe" | "dll" | "sys" | "msi" | "msix" | "appx" | "ocx" | "so" | "pak" => 6,
-        "js" | "ts" | "tsx" | "jsx" | "json" | "rs" | "py" | "java" | "c" | "h" | "cpp" | "cs" | "go" | "html" | "css"
-        | "class" | "jar" | "pyc" | "map" | "node" | "pdb" | "lib" | "obj" | "rlib" => 7,
-        "vhd" | "vhdx" | "vmdk" | "vdi" | "qcow2" | "db" | "sqlite" | "dat" | "bin" | "log" | "tmp" | "cache" => 8,
+        "js" | "ts" | "tsx" | "jsx" | "json" | "rs" | "py" | "java" | "c" | "h" | "cpp" | "cs"
+        | "go" | "html" | "css" | "class" | "jar" | "pyc" | "map" | "node" | "pdb" | "lib"
+        | "obj" | "rlib" => 7,
+        "vhd" | "vhdx" | "vmdk" | "vdi" | "qcow2" | "db" | "sqlite" | "dat" | "bin" | "log"
+        | "tmp" | "cache" => 8,
         _ => 0,
     }
 }
 
-pub const TYPE_NAMES: [&str; 9] =
-    ["Other", "Video", "Images", "Audio", "Documents", "Archives", "Programs", "Code", "Data & disks"];
+pub const TYPE_NAMES: [&str; 9] = [
+    "Other",
+    "Video",
+    "Images",
+    "Audio",
+    "Documents",
+    "Archives",
+    "Programs",
+    "Code",
+    "Data & disks",
+];
 
 #[cfg(test)]
 mod tests {

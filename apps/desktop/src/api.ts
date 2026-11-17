@@ -28,6 +28,8 @@ export interface Change { path: string; before: number; after: number; delta: nu
 export interface Hover { name: string; alloc: number; files: number; dir: boolean; modified: number; path: string; }
 export interface LedgerEntry { time: number; op: string; path: string; method: Method; outcome: string; reason: string; bytes: number; held_at: string | null; }
 
+export interface TweakInfo { id: string; name: string; explain: string; category: string; tier: "Recommended" | "Optional" | "ExplainOnly"; restart: "none" | "explorer" | "signout" | "reboot"; needs_admin: boolean; evidence: string; state: "on" | "off" | "default" | "unknown"; current: string; applied: boolean; locked: string | null; }
+
 export type ScanEvent =
   | { type: "progress" | "partial"; items: number; bytes: number; ms: number }
   | { type: "done"; items: number; ms: number; partial: boolean; mode: string }
@@ -85,6 +87,9 @@ export const api = {
   exportCsv: (query: string) => invoke<string>("export_csv", { query }),
   dataLocation: () => invoke<string>("data_location"),
   clearHistory: () => invoke<void>("clear_history"),
+  tweaks: () => invoke<TweakInfo[]>("tweaks_list"),
+  tweakApply: (id: string) => invoke<void>("tweak_apply", { id }),
+  tweakRevert: (id: string) => invoke<void>("tweak_revert", { id }),
 };
 
 export const FLAG = { DIR: 1, LINK: 2, HARDLINK: 4, PLACEHOLDER: 8, ADS: 16, SYSTEM: 32, UNREAD: 64 };

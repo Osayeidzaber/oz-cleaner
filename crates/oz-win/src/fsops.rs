@@ -34,14 +34,21 @@ pub fn meta(path: &str) -> Result<Meta, u32> {
     // SAFETY: zeroed POD filled by the call.
     let mut d: WIN32_FILE_ATTRIBUTE_DATA = unsafe { std::mem::zeroed() };
     // SAFETY: valid path and out struct.
-    let ok = unsafe { GetFileAttributesExW(w.as_ptr(), GetFileExInfoStandard, (&mut d as *mut WIN32_FILE_ATTRIBUTE_DATA).cast()) };
+    let ok = unsafe {
+        GetFileAttributesExW(
+            w.as_ptr(),
+            GetFileExInfoStandard,
+            (&mut d as *mut WIN32_FILE_ATTRIBUTE_DATA).cast(),
+        )
+    };
     if ok == 0 {
         return Err(last());
     }
     Ok(Meta {
         attrs: d.dwFileAttributes,
         size: (d.nFileSizeHigh as u64) << 32 | d.nFileSizeLow as u64,
-        modified: ((d.ftLastWriteTime.dwHighDateTime as u64) << 32 | d.ftLastWriteTime.dwLowDateTime as u64) as i64,
+        modified: ((d.ftLastWriteTime.dwHighDateTime as u64) << 32
+            | d.ftLastWriteTime.dwLowDateTime as u64) as i64,
     })
 }
 
@@ -61,7 +68,11 @@ pub fn list_dir(path: &str) -> Result<Vec<String>, u32> {
     }
     let mut out = Vec::new();
     loop {
-        let n = d.cFileName.iter().position(|&c| c == 0).unwrap_or(d.cFileName.len());
+        let n = d
+            .cFileName
+            .iter()
+            .position(|&c| c == 0)
+            .unwrap_or(d.cFileName.len());
         let name = String::from_utf16_lossy(&d.cFileName[..n]);
         if name != "." && name != ".." {
             out.push(name);
@@ -137,7 +148,12 @@ pub fn remove_tree(path: &str, stop: &dyn Fn() -> bool) -> Result<(), u32> {
 }
 
 /// Deletes what it can. `on_removed` receives bytes for each deleted file.
-pub fn remove_tree_report(path: &str, stop: &dyn Fn() -> bool, on_removed: &mut dyn FnMut(u64), fails: &mut Vec<(String, u32)>) {
+pub fn remove_tree_report(
+    path: &str,
+    stop: &dyn Fn() -> bool,
+    on_removed: &mut dyn FnMut(u64),
+    fails: &mut Vec<(String, u32)>,
+) {
     if stop() {
         return;
     }
@@ -174,7 +190,12 @@ pub fn remove_tree_report(path: &str, stop: &dyn Fn() -> bool, on_removed: &mut 
         }
     };
     for n in names {
-        remove_tree_report(&format!("{}\\{n}", path.trim_end_matches('\\')), stop, on_removed, fails);
+        remove_tree_report(
+            &format!("{}\\{n}", path.trim_end_matches('\\')),
+            stop,
+            on_removed,
+            fails,
+        );
     }
     if !stop() {
         if let Err(e) = remove_empty_dir(path) {
@@ -209,11 +230,12 @@ pub fn create_dirs(path: &str) -> Result<(), u32> {
 pub fn recycle(path: &str) -> Result<(), u32> {
     let mut from = wide(path);
     from.push(0); // double NUL terminated
-    // SAFETY: zeroed POD; `from` outlives the call.
+                  // SAFETY: zeroed POD; `from` outlives the call.
     let mut op: SHFILEOPSTRUCTW = unsafe { std::mem::zeroed() };
     op.wFunc = FO_DELETE;
     op.pFrom = from.as_ptr();
-    op.fFlags = (FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI | FOF_NO_UI) as u16;
+    op.fFlags =
+        (FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI | FOF_NO_UI) as u16;
     // SAFETY: op is fully initialized for FO_DELETE.
     let r = unsafe { SHFileOperationW(&mut op) };
     if r != 0 {
@@ -265,7 +287,16 @@ pub fn create_junction(link: &str, target: &str) -> Result<(), String> {
     let mut ret = 0u32;
     // SAFETY: buffer valid for its length; handle open.
     let ok = unsafe {
-        DeviceIoControl(h, FSCTL_SET_REPARSE_POINT, buf.as_ptr().cast(), buf.len() as u32, std::ptr::null_mut(), 0, &mut ret, std::ptr::null_mut())
+        DeviceIoControl(
+            h,
+            FSCTL_SET_REPARSE_POINT,
+            buf.as_ptr().cast(),
+            buf.len() as u32,
+            std::ptr::null_mut(),
+            0,
+            &mut ret,
+            std::ptr::null_mut(),
+        )
     };
     let e = last();
     // SAFETY: open handle.
@@ -361,7 +392,13 @@ mod tests {
 
         let locked = format!("{r}\\locked.txt");
         use std::os::windows::fs::OpenOptionsExt;
-        let h = fs::OpenOptions::new().create(true).truncate(true).write(true).share_mode(0).open(&locked).unwrap();
+        let h = fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .share_mode(0)
+            .open(&locked)
+            .unwrap();
         let mut fails = Vec::new();
         remove_tree_report(&r, &|| false, &mut |_| {}, &mut fails);
         assert_eq!(fails.len(), 1);

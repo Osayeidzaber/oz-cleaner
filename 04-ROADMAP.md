@@ -68,9 +68,11 @@ F-42 with rollback tests at every step, including simulated copy failure and ful
 
 **Exit:** Round-trip relocate and undo on fixtures, with hash equality and long paths. One real low-value folder relocated by owner.
 
-## M6b: Debloat (TODO)
+## M6b: Debloat (IN PROGRESS)
 
 `oz-tweaks` catalog and loader (D-14), helper `ApplyTweak` / `RevertTweak`, Ledger prior-state records, restore point offer (spike S8), Debloat screen with per-tweak explain, Undo all.
+
+Done 2026-11-17: `oz-tweaks` catalog (77 tweaks: performance, privacy, Explorer, taskbar, storage, accessibility), loader rejecting security and update keys (tested), `oz-win::tweak` registry and power-plan read and write, Tweaks screen with live state, apply and undo with saved prior values. Apply is locked for every tweak: `verified` is empty because Windows Sandbox isn't installed on the owner's machine. HKLM and power-setting tweaks also need helper operations, not built yet.
 
 **Exit:** Every catalogued tweak passes apply, revert and state-equal in Windows Sandbox. The loader rejects security and update targets (test). No tweak is run on the owner's machine without their request in that moment.
 

@@ -95,7 +95,10 @@ pub fn expand(pattern: &str, env: &HashMap<String, String>) -> Option<String> {
 }
 
 fn segments(p: &str) -> Vec<String> {
-    p.trim_end_matches('\\').split('\\').map(|s| s.to_lowercase()).collect()
+    p.trim_end_matches('\\')
+        .split('\\')
+        .map(|s| s.to_lowercase())
+        .collect()
 }
 
 /// True if `path` equals the pattern or lies beneath it. `*` matches one segment.
@@ -125,7 +128,10 @@ impl Matcher {
     }
 
     pub fn find(&self, path: &str) -> Option<&Rule> {
-        self.expanded.iter().find(|(_, p)| matches(p, path)).map(|(i, _)| &self.rules[*i])
+        self.expanded
+            .iter()
+            .find(|(_, p)| matches(p, path))
+            .map(|(i, _)| &self.rules[*i])
     }
 
     /// Expanded, wildcard-free roots of a rule.
@@ -141,7 +147,14 @@ impl Matcher {
 /// Suggests a likely owner from a folder name. Always shown as a guess (F-31).
 pub fn guess_owner(path: &str) -> Option<String> {
     let lower = path.to_lowercase();
-    for marker in ["\\appdata\\local\\", "\\appdata\\roaming\\", "\\appdata\\locallow\\", "\\program files\\", "\\program files (x86)\\", "\\programdata\\"] {
+    for marker in [
+        "\\appdata\\local\\",
+        "\\appdata\\roaming\\",
+        "\\appdata\\locallow\\",
+        "\\program files\\",
+        "\\program files (x86)\\",
+        "\\programdata\\",
+    ] {
         if let Some(i) = lower.find(marker) {
             let rest = &path[i + marker.len()..];
             let seg = rest.split('\\').next().unwrap_or("");
@@ -191,26 +204,55 @@ mod tests {
 
     #[test]
     fn rejects_unverified_and_bad_protected() {
-        let base = "[[rule]]\nid='a'\nname='a'\nexplain='a'\nafter='x'\ncategory='c'\npaths=['C:\\\\x']\n";
-        assert!(load(&format!("{base}tier='Caution'\naction='delete_contents'\nverified=''")).is_err());
-        assert!(load(&format!("{base}tier='Protected'\naction='delete_contents'\nverified='y'")).is_err());
-        assert!(load(&format!("{base}tier='Caution'\naction='delete_contents'\nverified='y'")).is_ok());
+        let base =
+            "[[rule]]\nid='a'\nname='a'\nexplain='a'\nafter='x'\ncategory='c'\npaths=['C:\\\\x']\n";
+        assert!(load(&format!(
+            "{base}tier='Caution'\naction='delete_contents'\nverified=''"
+        ))
+        .is_err());
+        assert!(load(&format!(
+            "{base}tier='Protected'\naction='delete_contents'\nverified='y'"
+        ))
+        .is_err());
+        assert!(load(&format!(
+            "{base}tier='Caution'\naction='delete_contents'\nverified='y'"
+        ))
+        .is_ok());
     }
 
     #[test]
     fn matching() {
         let m = Matcher::new(load(CATALOG).unwrap(), &env());
-        assert_eq!(m.find(r"C:\Users\z\AppData\Local\Temp\x\y.tmp").unwrap().id, "user-temp");
+        assert_eq!(
+            m.find(r"C:\Users\z\AppData\Local\Temp\x\y.tmp").unwrap().id,
+            "user-temp"
+        );
         assert_eq!(m.find(r"c:\windows\winsxs\foo").unwrap().id, "winsxs");
         assert!(m.find(r"C:\Users\z\Documents\report.docx").is_none());
         assert!(m.find(r"C:\Users\z\AppData\Local\Temporary").is_none());
-        assert_eq!(m.find(r"C:\Users\z\AppData\Local\Packages\Canonical\LocalState\ext4.vhdx").unwrap().id, "wsl-docker");
-        assert_eq!(m.roots("npm-cache"), vec![r"C:\Users\z\AppData\Local\npm-cache".to_string()]);
+        assert_eq!(
+            m.find(r"C:\Users\z\AppData\Local\Packages\Canonical\LocalState\ext4.vhdx")
+                .unwrap()
+                .id,
+            "wsl-docker"
+        );
+        let npm = m.roots("npm-cache");
+        assert!(npm.contains(&r"C:\Users\z\AppData\Local\npm-cache".to_string()));
+        assert!(npm.contains(
+            &r"C:\Users\z\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\npm-cache"
+                .to_string()
+        ));
+        assert_eq!(m.find(r"C:\Users\z\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\npm-cache\_cacache\x").unwrap().id, "npm-cache");
+        // Claude Code's own history and config are never matched by a cleaning rule.
+        assert!(m.find(r"C:\Users\z\.claude\projects\x.jsonl").is_none());
     }
 
     #[test]
     fn misc() {
-        assert_eq!(guess_owner(r"C:\Users\z\AppData\Local\Slack\x").as_deref(), Some("Slack"));
+        assert_eq!(
+            guess_owner(r"C:\Users\z\AppData\Local\Slack\x").as_deref(),
+            Some("Slack")
+        );
         assert!(expand("%NOPE%\\x", &env()).is_none());
         assert!(dev_folder_marker("node_modules").is_some());
     }

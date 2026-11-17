@@ -3,7 +3,10 @@ use crate::plan::ItemResult;
 use std::io::Write;
 
 pub fn append_line(file: &str, line: &str) -> std::io::Result<()> {
-    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(oz_win::long_path(file))?;
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(oz_win::long_path(file))?;
     writeln!(f, "{line}")
 }
 
@@ -18,8 +21,12 @@ pub fn append(dir: &str, op: &str, r: &ItemResult) {
 }
 
 pub fn read(dir: &str) -> Vec<serde_json::Value> {
-    let Ok(t) = std::fs::read_to_string(format!("{dir}\\ledger.jsonl")) else { return Vec::new() };
-    t.lines().filter_map(|l| serde_json::from_str(l).ok()).collect()
+    let Ok(t) = std::fs::read_to_string(format!("{dir}\\ledger.jsonl")) else {
+        return Vec::new();
+    };
+    t.lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect()
 }
 
 #[cfg(test)]
@@ -32,7 +39,15 @@ mod tests {
         let d = std::env::temp_dir().join(format!("oz-ledger-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         let d = d.to_str().unwrap().to_string();
-        let r = ItemResult { path: "a".into(), method: Method::Hold, outcome: Outcome::Held, reason: "".into(), bytes: 5, denied: false, held_at: Some("h".into()) };
+        let r = ItemResult {
+            path: "a".into(),
+            method: Method::Hold,
+            outcome: Outcome::Held,
+            reason: "".into(),
+            bytes: 5,
+            denied: false,
+            held_at: Some("h".into()),
+        };
         append(&d, "o1", &r);
         append(&d, "o2", &r);
         let v = read(&d);

@@ -24,7 +24,15 @@ impl Read for Pipe {
     fn read(&mut self, b: &mut [u8]) -> std::io::Result<usize> {
         let mut n = 0u32;
         // SAFETY: buffer valid for its length.
-        let ok = unsafe { ReadFile(self.0, b.as_mut_ptr(), b.len().min(1 << 30) as u32, &mut n, std::ptr::null_mut()) };
+        let ok = unsafe {
+            ReadFile(
+                self.0,
+                b.as_mut_ptr(),
+                b.len().min(1 << 30) as u32,
+                &mut n,
+                std::ptr::null_mut(),
+            )
+        };
         if ok == 0 {
             // SAFETY: no preconditions.
             let e = unsafe { GetLastError() };
@@ -41,7 +49,15 @@ impl Write for Pipe {
     fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
         let mut n = 0u32;
         // SAFETY: buffer valid for its length.
-        let ok = unsafe { WriteFile(self.0, b.as_ptr(), b.len().min(1 << 30) as u32, &mut n, std::ptr::null_mut()) };
+        let ok = unsafe {
+            WriteFile(
+                self.0,
+                b.as_ptr(),
+                b.len().min(1 << 30) as u32,
+                &mut n,
+                std::ptr::null_mut(),
+            )
+        };
         if ok == 0 {
             return Err(std::io::Error::last_os_error());
         }
@@ -59,8 +75,12 @@ pub enum LaunchError {
 
 fn random_token() -> u128 {
     use std::hash::{BuildHasher, Hasher};
-    let a = std::collections::hash_map::RandomState::new().build_hasher().finish() as u128;
-    let b = std::collections::hash_map::RandomState::new().build_hasher().finish() as u128;
+    let a = std::collections::hash_map::RandomState::new()
+        .build_hasher()
+        .finish() as u128;
+    let b = std::collections::hash_map::RandomState::new()
+        .build_hasher()
+        .finish() as u128;
     a << 64 | b
 }
 
@@ -127,7 +147,15 @@ pub fn launch_helper(exe: &str) -> Result<Pipe, LaunchError> {
         // A dummy connection releases a blocked ConnectNamedPipe; PID check rejects it.
         // SAFETY: NUL-terminated name.
         let h = unsafe {
-            CreateFileW(w.as_ptr(), GENERIC_READ, 0, std::ptr::null(), OPEN_EXISTING, 0, std::ptr::null_mut())
+            CreateFileW(
+                w.as_ptr(),
+                GENERIC_READ,
+                0,
+                std::ptr::null(),
+                OPEN_EXISTING,
+                0,
+                std::ptr::null_mut(),
+            )
         };
         if h != INVALID_HANDLE_VALUE {
             // SAFETY: just opened.
@@ -148,7 +176,8 @@ pub fn launch_helper(exe: &str) -> Result<Pipe, LaunchError> {
     }
     let mut p = pipe;
     let mut got = [0u8; 16];
-    p.read_exact(&mut got).map_err(|e| LaunchError::Failed(format!("handshake: {e}")))?;
+    p.read_exact(&mut got)
+        .map_err(|e| LaunchError::Failed(format!("handshake: {e}")))?;
     if u128::from_le_bytes(got) != token {
         return Err(LaunchError::Failed("handshake token mismatch".into()));
     }
@@ -160,7 +189,15 @@ pub fn connect_to_parent(name: &str, parent_pid: u32, token: u128) -> Result<Pip
     let w = wide(name);
     // SAFETY: NUL-terminated name.
     let h = unsafe {
-        CreateFileW(w.as_ptr(), GENERIC_READ | GENERIC_WRITE, 0, std::ptr::null(), OPEN_EXISTING, 0, std::ptr::null_mut())
+        CreateFileW(
+            w.as_ptr(),
+            GENERIC_READ | GENERIC_WRITE,
+            0,
+            std::ptr::null(),
+            OPEN_EXISTING,
+            0,
+            std::ptr::null_mut(),
+        )
     };
     if h == INVALID_HANDLE_VALUE {
         return Err("cannot open pipe".into());
@@ -171,7 +208,8 @@ pub fn connect_to_parent(name: &str, parent_pid: u32, token: u128) -> Result<Pip
     if unsafe { GetNamedPipeServerProcessId(p.0, &mut server) } == 0 || server != parent_pid {
         return Err("pipe server is not the parent".into());
     }
-    p.write_all(&token.to_le_bytes()).map_err(|e| e.to_string())?;
+    p.write_all(&token.to_le_bytes())
+        .map_err(|e| e.to_string())?;
     Ok(p)
 }
 

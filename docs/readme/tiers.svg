@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 150" width="960" height="150" role="img" aria-label="Safe, Check first, Keep">
+<style>
+  .m{font:500 11px ui-monospace,'JetBrains Mono',Consolas,monospace;letter-spacing:.14em}
+  .pill{animation:pulse 4.5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.35}15%,30%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;opacity:1!important}}
+</style>
+<rect width="960" height="150" rx="12" fill="#000"/>
+<text x="32" y="40" class="m" fill="#8a8a8a">HOW OZ LABELS EVERYTHING</text>
+<g class="pill"><rect x="32" y="66" width="270" height="48" rx="24" fill="#f2f2f2"/><text x="56" y="95" class="m" fill="#000">SAFE  ·  REBUILDS ITSELF ↗</text></g>
+<g class="pill" style="animation-delay:1.5s"><rect x="345" y="66" width="270" height="48" rx="24" fill="none" stroke="#e8c547"/><text x="369" y="95" class="m" fill="#e8c547">CHECK FIRST  ·  COSTS SOMETHING</text></g>
+<g class="pill" style="animation-delay:3s"><rect x="658" y="66" width="270" height="48" rx="24" fill="none" stroke="#3a3a3a"/><text x="682" y="95" class="m" fill="#bdbdbd">KEEP  ·  YOURS. NEVER TOUCHED</text></g>
+</svg>

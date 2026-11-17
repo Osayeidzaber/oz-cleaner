@@ -34,9 +34,17 @@ pub struct State {
 impl Shared {
     pub fn new(root: &str) -> Arc<Self> {
         let name = root.trim_end_matches('\\');
-        let name = if name.len() == 2 { format!("{name}\\") } else { name.to_string() };
+        let name = if name.len() == 2 {
+            format!("{name}\\")
+        } else {
+            name.to_string()
+        };
         Arc::new(Self {
-            builder: Mutex::new(State { b: IndexBuilder::new(&name), seen: HashSet::new(), unread: Vec::new() }),
+            builder: Mutex::new(State {
+                b: IndexBuilder::new(&name),
+                seen: HashSet::new(),
+                unread: Vec::new(),
+            }),
             cancel: AtomicBool::new(false),
             items: AtomicU64::new(0),
             bytes: AtomicU64::new(0),
@@ -79,7 +87,9 @@ fn read_dir(path: &str, out: &mut Vec<Entry>) -> Result<(), u32> {
     let mut result = Ok(());
     loop {
         // SAFETY: buffer pointer and size are valid and aligned.
-        let ok = unsafe { GetFileInformationByHandleEx(h, class, buf.as_mut_ptr().cast(), bytes as u32) };
+        let ok = unsafe {
+            GetFileInformationByHandleEx(h, class, buf.as_mut_ptr().cast(), bytes as u32)
+        };
         class = FileIdBothDirectoryInfo;
         if ok == 0 {
             // SAFETY: no preconditions.
@@ -102,9 +112,24 @@ fn read_dir(path: &str, out: &mut Vec<Entry>) -> Result<(), u32> {
 fn parse_batch(b: &[u8], out: &mut Vec<Entry>) {
     let mut o = 0usize;
     loop {
-        let rd64 = |p: usize| b.get(p..p + 8).map(|s| u64::from_le_bytes(s.try_into().unwrap()));
-        let rd32 = |p: usize| b.get(p..p + 4).map(|s| u32::from_le_bytes(s.try_into().unwrap()));
-        let (Some(next), Some(modified), Some(eof), Some(alloc), Some(attrs), Some(nlen), Some(ea), Some(id)) = (
+        let rd64 = |p: usize| {
+            b.get(p..p + 8)
+                .map(|s| u64::from_le_bytes(s.try_into().unwrap()))
+        };
+        let rd32 = |p: usize| {
+            b.get(p..p + 4)
+                .map(|s| u32::from_le_bytes(s.try_into().unwrap()))
+        };
+        let (
+            Some(next),
+            Some(modified),
+            Some(eof),
+            Some(alloc),
+            Some(attrs),
+            Some(nlen),
+            Some(ea),
+            Some(id),
+        ) = (
             rd32(o),
             rd64(o + 24),
             rd64(o + 40),
@@ -113,11 +138,19 @@ fn parse_batch(b: &[u8], out: &mut Vec<Entry>) {
             rd32(o + 60),
             rd32(o + 64),
             rd64(o + 96),
-        ) else {
+        )
+        else {
             return;
         };
-        let Some(nb) = b.get(o + 104..o + 104 + nlen as usize) else { return };
-        let wide: Vec<u16> = nb.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        let Some(nb) = b.get(o + 104..o + 104 + nlen as usize) else {
+            return;
+        };
+        let wide: Vec<u16> = nb
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| u16::from_le_bytes(*c))
+            .collect();
         let name = String::from_utf16_lossy(&wide);
         if name != "." && name != ".." {
             out.push(Entry {
@@ -145,8 +178,15 @@ struct Queue {
 
 /// Blocks until the walk completes or is cancelled.
 pub fn run(shared: Arc<Shared>, root: &str, threads: usize) {
-    let root = if root.ends_with('\\') { root.to_string() } else { format!("{root}\\") };
-    let queue = Arc::new(Queue { q: Mutex::new((vec![(ROOT, root)], 0)), cv: Condvar::new() });
+    let root = if root.ends_with('\\') {
+        root.to_string()
+    } else {
+        format!("{root}\\")
+    };
+    let queue = Arc::new(Queue {
+        q: Mutex::new((vec![(ROOT, root)], 0)),
+        cv: Condvar::new(),
+    });
     let mut handles = Vec::new();
     for _ in 0..threads.max(1) {
         let (s, q) = (shared.clone(), queue.clone());
@@ -244,7 +284,8 @@ mod tests {
         let outside = std::env::temp_dir().join(format!("oz-walk-out-{}", std::process::id()));
         fs::create_dir_all(&outside).unwrap();
         fs::write(outside.join("big.bin"), vec![1u8; 500_000]).unwrap();
-        crate::fsops::create_junction(root.join("j").to_str().unwrap(), outside.to_str().unwrap()).unwrap();
+        crate::fsops::create_junction(root.join("j").to_str().unwrap(), outside.to_str().unwrap())
+            .unwrap();
 
         // Long path: over 300 characters.
         let mut deep = crate::long_path(&r);
@@ -260,9 +301,18 @@ mod tests {
         let ix = s.builder.lock().unwrap().b.build();
         // 100k once for the hard link pair + 50k deep; junction excluded.
         assert_eq!(ix.logical(ROOT), 150_000);
-        let names: Vec<_> = ix.children(ROOT).iter().map(|&c| ix.name(c).to_string()).collect();
+        let names: Vec<_> = ix
+            .children(ROOT)
+            .iter()
+            .map(|&c| ix.name(c).to_string())
+            .collect();
         assert!(names.contains(&"j".to_string()));
-        let j = ix.children(ROOT).iter().copied().find(|&c| ix.name(c) == "j").unwrap();
+        let j = ix
+            .children(ROOT)
+            .iter()
+            .copied()
+            .find(|&c| ix.name(c) == "j")
+            .unwrap();
         assert!(ix.flags(j) & flag::LINK != 0);
         assert!(ix.children(j).is_empty());
         assert!(ix.allocated(ROOT) >= 150_000);

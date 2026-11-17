@@ -20,7 +20,11 @@ pub struct Row {
 
 pub fn row(ix: &Index, id: NodeId, depth: u16, expanded: bool) -> Row {
     let p = ix.parent(id);
-    let parent_alloc = if id == ROOT || !ix.contains(p) { ix.allocated(id) } else { ix.allocated(p) };
+    let parent_alloc = if id == ROOT || !ix.contains(p) {
+        ix.allocated(id)
+    } else {
+        ix.allocated(p)
+    };
     Row {
         id,
         name: ix.name(id).to_string(),
@@ -32,7 +36,11 @@ pub fn row(ix: &Index, id: NodeId, depth: u16, expanded: bool) -> Row {
         flags: ix.flags(id),
         kids: !ix.children(id).is_empty(),
         expanded,
-        pct: if parent_alloc == 0 { 0.0 } else { (ix.allocated(id) as f64 / parent_alloc as f64 * 100.0) as f32 },
+        pct: if parent_alloc == 0 {
+            0.0
+        } else {
+            (ix.allocated(id) as f64 / parent_alloc as f64 * 100.0) as f32
+        },
     }
 }
 
@@ -56,10 +64,21 @@ pub struct Page {
 }
 
 /// Flattens the expanded tree and returns one window of it.
-pub fn page(ix: &Index, root: NodeId, expanded: &HashSet<u32>, sort: &str, offset: u32, limit: u32) -> Page {
+pub fn page(
+    ix: &Index,
+    root: NodeId,
+    expanded: &HashSet<u32>,
+    sort: &str,
+    offset: u32,
+    limit: u32,
+) -> Page {
     let mut rows = Vec::new();
     let mut total = 0u32;
-    let mut stack: Vec<(NodeId, u16)> = sorted_children(ix, root, sort).into_iter().rev().map(|c| (c, 0)).collect();
+    let mut stack: Vec<(NodeId, u16)> = sorted_children(ix, root, sort)
+        .into_iter()
+        .rev()
+        .map(|c| (c, 0))
+        .collect();
     while let Some((id, d)) = stack.pop() {
         let is_open = expanded.contains(&id);
         if total >= offset && (rows.len() as u32) < limit {
@@ -71,7 +90,11 @@ pub fn page(ix: &Index, root: NodeId, expanded: &HashSet<u32>, sort: &str, offse
             stack.extend(kids.into_iter().rev().map(|c| (c, d + 1)));
         }
     }
-    Page { total, offset, rows }
+    Page {
+        total,
+        offset,
+        rows,
+    }
 }
 
 const DAY: i64 = 864_000_000_000;
@@ -115,11 +138,15 @@ fn parse_age(s: &str) -> Option<i64> {
 }
 
 pub fn parse_filter(q: &str) -> Filter {
-    let mut f = Filter { valid: true, ..Default::default() };
+    let mut f = Filter {
+        valid: true,
+        ..Default::default()
+    };
     for t in q.split_whitespace() {
         let l = t.to_lowercase();
         if let Some(e) = l.strip_prefix("ext:") {
-            f.ext.extend(e.split(',').map(|x| x.trim_start_matches('.').to_string()));
+            f.ext
+                .extend(e.split(',').map(|x| x.trim_start_matches('.').to_string()));
         } else if let Some(v) = l.strip_prefix("size>") {
             f.min_size = parse_size(v);
             f.valid &= f.min_size.is_some();
@@ -179,7 +206,9 @@ pub fn search(ix: &Index, q: &str, limit: usize, now: i64) -> SearchResult {
             if f.min_age.is_some_and(|m| age < m) || f.max_age.is_some_and(|m| age > m) {
                 continue;
             }
-            if f.from.is_some_and(|t| ix.modified(id) < t) || f.to.is_some_and(|t| ix.modified(id) >= t) {
+            if f.from.is_some_and(|t| ix.modified(id) < t)
+                || f.to.is_some_and(|t| ix.modified(id) >= t)
+            {
                 continue;
             }
             if !f.ext.is_empty() && !ix.ext(id).is_some_and(|e| f.ext.contains(&e)) {
@@ -188,7 +217,11 @@ pub fn search(ix: &Index, q: &str, limit: usize, now: i64) -> SearchResult {
             if !f.text.is_empty() {
                 let name = ix.name(id).to_lowercase();
                 let needs_path = f.text.iter().any(|t| t.contains('\\'));
-                let hay = if needs_path { ix.path(id).to_lowercase() } else { name };
+                let hay = if needs_path {
+                    ix.path(id).to_lowercase()
+                } else {
+                    name
+                };
                 if !f.text.iter().all(|t| hay.contains(t.as_str())) {
                     continue;
                 }
@@ -198,11 +231,22 @@ pub fn search(ix: &Index, q: &str, limit: usize, now: i64) -> SearchResult {
     }
     hits.sort_by_key(|&i| std::cmp::Reverse(ix.allocated(i)));
     // Files only in the byte total, so nested matches don't double-count.
-    let bytes = hits.iter().filter(|&&i| !ix.is_dir(i)).map(|&i| ix.allocated(i)).sum();
+    let bytes = hits
+        .iter()
+        .filter(|&&i| !ix.is_dir(i))
+        .map(|&i| ix.allocated(i))
+        .sum();
     SearchResult {
         total: hits.len() as u32,
         bytes,
-        rows: hits.iter().take(limit).map(|&i| SearchRow { row: row(ix, i, 0, false), path: ix.path(i) }).collect(),
+        rows: hits
+            .iter()
+            .take(limit)
+            .map(|&i| SearchRow {
+                row: row(ix, i, 0, false),
+                path: ix.path(i),
+            })
+            .collect(),
         ids: hits.iter().take(200_000).copied().collect(),
         valid: f.valid,
     }
@@ -221,7 +265,9 @@ pub fn top_files(ix: &Index, limit: usize) -> Vec<TopEntry> {
     let mut v: Vec<NodeId> = ix.ids().filter(|&i| !ix.is_dir(i)).collect();
     v.sort_unstable_by_key(|&i| std::cmp::Reverse(ix.allocated(i)));
     v.truncate(limit);
-    v.iter().map(|&i| entry(ix, i, ix.allocated(i), 1)).collect()
+    v.iter()
+        .map(|&i| entry(ix, i, ix.allocated(i), 1))
+        .collect()
 }
 
 /// Ranks folders by the files directly inside them, which avoids nested
@@ -247,7 +293,13 @@ pub fn top_folders(ix: &Index, limit: usize) -> Vec<TopEntry> {
 }
 
 fn entry(ix: &Index, i: NodeId, alloc: u64, files: u32) -> TopEntry {
-    TopEntry { id: i, name: ix.name(i).to_string(), path: ix.path(i), alloc, files }
+    TopEntry {
+        id: i,
+        name: ix.name(i).to_string(),
+        path: ix.path(i),
+        alloc,
+        files,
+    }
 }
 
 #[derive(Serialize)]
@@ -292,7 +344,13 @@ pub struct Week {
 pub fn timeline(ix: &Index, weeks: usize, now: i64) -> Vec<Week> {
     const WEEK: i64 = 7 * DAY;
     let end = now - now.rem_euclid(WEEK) + WEEK;
-    let mut out: Vec<Week> = (0..weeks).map(|i| Week { start: end - WEEK * (weeks - i) as i64, bytes: 0, files: 0 }).collect();
+    let mut out: Vec<Week> = (0..weeks)
+        .map(|i| Week {
+            start: end - WEEK * (weeks - i) as i64,
+            bytes: 0,
+            files: 0,
+        })
+        .collect();
     let first = out[0].start;
     for i in ix.ids() {
         if ix.is_dir(i) {
@@ -300,7 +358,11 @@ pub fn timeline(ix: &Index, weeks: usize, now: i64) -> Vec<Week> {
         }
         let t = ix.modified(i);
         // Anything older than the grid lands in its first cell.
-        let idx = if t < first { 0 } else { ((t - first) / WEEK) as usize };
+        let idx = if t < first {
+            0
+        } else {
+            ((t - first) / WEEK) as usize
+        };
         if let Some(w) = out.get_mut(idx) {
             w.bytes += ix.allocated(i);
             w.files += 1;
@@ -319,7 +381,10 @@ pub fn find_path(ix: &Index, path: &str) -> Option<NodeId> {
     }
     let mut cur = ROOT;
     for seg in rest.split('\\') {
-        cur = *ix.children(cur).iter().find(|&&c| ix.name(c).eq_ignore_ascii_case(seg) || ix.name(c).to_lowercase() == seg)?;
+        cur = *ix
+            .children(cur)
+            .iter()
+            .find(|&&c| ix.name(c).eq_ignore_ascii_case(seg) || ix.name(c).to_lowercase() == seg)?;
     }
     Some(cur)
 }
@@ -342,19 +407,33 @@ pub fn dev_folders(ix: &Index, limit: usize) -> Vec<DevFolder> {
             continue;
         }
         let name = ix.name(id);
-        let Some(markers) = oz_rules::dev_folder_marker(name) else { continue };
+        let Some(markers) = oz_rules::dev_folder_marker(name) else {
+            continue;
+        };
         let p = ix.parent(id);
-        let has = |dir: NodeId| ix.children(dir).iter().any(|&c| markers.iter().any(|m| ix.name(c).eq_ignore_ascii_case(m)));
+        let has = |dir: NodeId| {
+            ix.children(dir)
+                .iter()
+                .any(|&c| markers.iter().any(|m| ix.name(c).eq_ignore_ascii_case(m)))
+        };
         if !(has(p) || has(id)) {
             continue;
         }
         let path = ix.path(id);
         let lower = path.to_lowercase();
-        let nested = ["\\node_modules\\", "\\.venv\\", "\\target\\"].iter().any(|m| lower[..lower.len() - name.len()].contains(m));
+        let nested = ["\\node_modules\\", "\\.venv\\", "\\target\\"]
+            .iter()
+            .any(|m| lower[..lower.len() - name.len()].contains(m));
         if nested {
             continue;
         }
-        out.push(DevFolder { id, name: name.to_string(), path, alloc: ix.allocated(id), modified: ix.modified(id) });
+        out.push(DevFolder {
+            id,
+            name: name.to_string(),
+            path,
+            alloc: ix.allocated(id),
+            modified: ix.modified(id),
+        });
     }
     out.sort_unstable_by_key(|d| std::cmp::Reverse(d.alloc));
     out.truncate(limit);
@@ -418,7 +497,7 @@ mod tests {
         assert_eq!(search(&i, "PROJ", 10, 100).total, 1);
         assert_eq!(search(&i, "proj\\package", 10, 100).total, 1);
         assert_eq!(search(&i, "age>1d", 10, DAY * 400).total, 4);
-        assert_eq!(search(&i, "size>abc", 10, 100).valid, false);
+        assert!(!search(&i, "size>abc", 10, 100).valid);
     }
 
     #[test]

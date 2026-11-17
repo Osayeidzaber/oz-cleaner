@@ -7,6 +7,7 @@ members = [
   "crates/oz-win",
   "crates/oz-rules",
   "crates/oz-ops",
+  "crates/oz-tweaks",
   "apps/helper",
   "apps/desktop/src-tauri",
 ]

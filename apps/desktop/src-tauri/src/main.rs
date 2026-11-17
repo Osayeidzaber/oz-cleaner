@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 //! Tauri core. Runs unelevated (A-3). The UI can only call the commands below.
 mod analysis;
+mod tweaks;
 
 use analysis::*;
 use oz_layout as layout;
@@ -38,11 +39,18 @@ struct App {
 }
 
 fn env_map() -> HashMap<String, String> {
-    std::env::vars().map(|(k, v)| (k.to_ascii_uppercase(), v)).collect()
+    std::env::vars()
+        .map(|(k, v)| (k.to_ascii_uppercase(), v))
+        .collect()
 }
 
 fn index(app: &App) -> Result<Arc<Index>, String> {
-    app.scan.lock().unwrap().index.clone().ok_or_else(|| "No scan yet".to_string())
+    app.scan
+        .lock()
+        .unwrap()
+        .index
+        .clone()
+        .ok_or_else(|| "No scan yet".to_string())
 }
 
 fn guard(app: &App) -> Result<&Guard, String> {
@@ -83,17 +91,36 @@ fn volumes() -> Vec<VolumeDto> {
 #[derive(Serialize, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 enum ScanEvent {
-    Progress { items: u64, bytes: u64, ms: u64 },
-    Partial { items: u64, bytes: u64, ms: u64 },
-    Done { items: u64, ms: u64, partial: bool, mode: String },
+    Progress {
+        items: u64,
+        bytes: u64,
+        ms: u64,
+    },
+    Partial {
+        items: u64,
+        bytes: u64,
+        ms: u64,
+    },
+    Done {
+        items: u64,
+        ms: u64,
+        partial: bool,
+        mode: String,
+    },
     Declined,
-    Failed { message: String },
+    Failed {
+        message: String,
+    },
 }
 
 /// Marks everything beneath cleanable rule roots for the Reclaimable lens.
 fn compute_marks(ix: &Index, m: &Matcher) -> Vec<bool> {
     let mut marks = vec![false; ix.len()];
-    for r in m.rules.iter().filter(|r| r.action == Action::DeleteContents) {
+    for r in m
+        .rules
+        .iter()
+        .filter(|r| r.action == Action::DeleteContents)
+    {
         for root in m.roots(&r.id) {
             if let Some(id) = find_path(ix, &root) {
                 let mut st = vec![id];
@@ -108,7 +135,12 @@ fn compute_marks(ix: &Index, m: &Matcher) -> Vec<bool> {
 }
 
 #[tauri::command]
-fn start_scan(root: String, fast: bool, on_event: Channel<ScanEvent>, app: State<'_, Arc<App>>) -> Result<(), String> {
+fn start_scan(
+    root: String,
+    fast: bool,
+    on_event: Channel<ScanEvent>,
+    app: State<'_, Arc<App>>,
+) -> Result<(), String> {
     if let Some(c) = app.cancel.lock().unwrap().take() {
         c.store(true, Ordering::Relaxed);
     }
@@ -117,7 +149,11 @@ fn start_scan(root: String, fast: bool, on_event: Channel<ScanEvent>, app: State
     *app.cancel.lock().unwrap() = Some(cancel.clone());
     {
         let mut s = app.scan.lock().unwrap();
-        *s = Scan { root: root.clone(), mode: if fast { "fast" } else { "standard" }.into(), ..Default::default() };
+        *s = Scan {
+            root: root.clone(),
+            mode: if fast { "fast" } else { "standard" }.into(),
+            ..Default::default()
+        };
     }
     let app: Arc<App> = app.inner().clone();
     std::thread::spawn(move || {
@@ -143,10 +179,19 @@ fn publish(app: &App, gen: u64, ix: Index, unread: Vec<String>, complete: bool) 
     true
 }
 
-fn standard_scan(app: &Arc<App>, gen: u64, root: &str, cancel: Arc<AtomicBool>, ev: &Channel<ScanEvent>) {
+fn standard_scan(
+    app: &Arc<App>,
+    gen: u64,
+    root: &str,
+    cancel: Arc<AtomicBool>,
+    ev: &Channel<ScanEvent>,
+) {
     let start = std::time::Instant::now();
     let shared = walk::Shared::new(root);
-    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(2, 8);
+    let workers = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .clamp(2, 8);
     let (s2, r2) = (shared.clone(), root.to_string());
     let handle = std::thread::spawn(move || walk::run(s2, &r2, workers));
 
@@ -157,7 +202,10 @@ fn standard_scan(app: &Arc<App>, gen: u64, root: &str, cancel: Arc<AtomicBool>, 
         if cancel.load(Ordering::Relaxed) {
             shared.cancel.store(true, Ordering::Relaxed);
         }
-        let (items, bytes) = (shared.items.load(Ordering::Relaxed), shared.bytes.load(Ordering::Relaxed));
+        let (items, bytes) = (
+            shared.items.load(Ordering::Relaxed),
+            shared.bytes.load(Ordering::Relaxed),
+        );
         let ms = start.elapsed().as_millis() as u64;
         let _ = ev.send(ScanEvent::Progress { items, bytes, ms });
         // Snapshots cost time, so they get rarer as the tree grows.
@@ -181,7 +229,12 @@ fn standard_scan(app: &Arc<App>, gen: u64, root: &str, cancel: Arc<AtomicBool>, 
     let st = shared.builder.lock().unwrap();
     let items = st.b.len() as u64;
     if publish(app, gen, st.b.build(), st.unread.clone(), !partial) {
-        let _ = ev.send(ScanEvent::Done { items, ms: start.elapsed().as_millis() as u64, partial, mode: "standard".into() });
+        let _ = ev.send(ScanEvent::Done {
+            items,
+            ms: start.elapsed().as_millis() as u64,
+            partial,
+            mode: "standard".into(),
+        });
     }
 }
 
@@ -210,7 +263,13 @@ fn ensure_helper(app: &App) -> Result<bool, String> {
     }
 }
 
-fn fast_scan(app: &Arc<App>, gen: u64, root: &str, cancel: Arc<AtomicBool>, ev: &Channel<ScanEvent>) {
+fn fast_scan(
+    app: &Arc<App>,
+    gen: u64,
+    root: &str,
+    cancel: Arc<AtomicBool>,
+    ev: &Channel<ScanEvent>,
+) {
     let start = std::time::Instant::now();
     match ensure_helper(app) {
         Ok(true) => {}
@@ -225,10 +284,14 @@ fn fast_scan(app: &Arc<App>, gen: u64, root: &str, cancel: Arc<AtomicBool>, ev: 
     }
     let letter = root.as_bytes().first().copied().unwrap_or(b'C');
     let mut guard_pipe = app.helper.lock().unwrap();
-    let Some(pipe) = guard_pipe.as_mut() else { return };
+    let Some(pipe) = guard_pipe.as_mut() else {
+        return;
+    };
     if write_frame(pipe, tag::SCAN, &[letter]).is_err() {
         *guard_pipe = None;
-        let _ = ev.send(ScanEvent::Failed { message: "The helper stopped unexpectedly".into() });
+        let _ = ev.send(ScanEvent::Failed {
+            message: "The helper stopped unexpectedly".into(),
+        });
         return;
     }
     let mut asm = mft::Assembler::default();
@@ -238,7 +301,12 @@ fn fast_scan(app: &Arc<App>, gen: u64, root: &str, cancel: Arc<AtomicBool>, ev: 
         if cancel.load(Ordering::Relaxed) {
             // Closing the pipe stops the helper; the next Fast scan prompts again.
             *guard_pipe = None;
-            let _ = ev.send(ScanEvent::Done { items: 0, ms: start.elapsed().as_millis() as u64, partial: true, mode: "fast".into() });
+            let _ = ev.send(ScanEvent::Done {
+                items: 0,
+                ms: start.elapsed().as_millis() as u64,
+                partial: true,
+                mode: "fast".into(),
+            });
             return;
         }
         match read_frame(pipe) {
@@ -248,7 +316,11 @@ fn fast_scan(app: &Arc<App>, gen: u64, root: &str, cancel: Arc<AtomicBool>, ev: 
                     bytes += r.allocated;
                     asm.add(r);
                 }
-                let _ = ev.send(ScanEvent::Progress { items: asm.count, bytes, ms: start.elapsed().as_millis() as u64 });
+                let _ = ev.send(ScanEvent::Progress {
+                    items: asm.count,
+                    bytes,
+                    ms: start.elapsed().as_millis() as u64,
+                });
             }
             Ok((tag::SCAN_DONE, _)) => break,
             Ok((tag::ERROR, m)) => {
@@ -271,7 +343,12 @@ fn fast_scan(app: &Arc<App>, gen: u64, root: &str, cancel: Arc<AtomicBool>, ev: 
     let b: IndexBuilder = asm.build(root);
     let items = b.len() as u64;
     if publish(app, gen, b.build(), Vec::new(), true) {
-        let _ = ev.send(ScanEvent::Done { items, ms: start.elapsed().as_millis() as u64, partial: false, mode: "fast".into() });
+        let _ = ev.send(ScanEvent::Done {
+            items,
+            ms: start.elapsed().as_millis() as u64,
+            partial: false,
+            mode: "fast".into(),
+        });
     }
 }
 
@@ -285,7 +362,14 @@ fn cancel_scan(app: State<'_, Arc<App>>) {
 // ---------------------------------------------------------------- reading
 
 #[tauri::command]
-fn tree_page(root: u32, expanded: Vec<u32>, sort: String, offset: u32, limit: u32, app: State<'_, Arc<App>>) -> Result<Page, String> {
+fn tree_page(
+    root: u32,
+    expanded: Vec<u32>,
+    sort: String,
+    offset: u32,
+    limit: u32,
+    app: State<'_, Arc<App>>,
+) -> Result<Page, String> {
     let ix = index(&app)?;
     if !ix.contains(root) {
         return Err("Unknown item".into());
@@ -334,7 +418,11 @@ fn details(id: u32, app: State<'_, Arc<App>>) -> Result<Details, String> {
         settings_uri: r.settings_uri.clone(),
         tool: r.tool.clone(),
     });
-    let guess = if rule.is_none() { oz_rules::guess_owner(&path) } else { None };
+    let guess = if rule.is_none() {
+        oz_rules::guess_owner(&path)
+    } else {
+        None
+    };
     let mut anc = Vec::new();
     let mut cur = id;
     while cur != oz_model::NONE {
@@ -347,12 +435,31 @@ fn details(id: u32, app: State<'_, Arc<App>>) -> Result<Details, String> {
     anc.reverse();
     let refused = guard(&app)?.check(&path).err().map(|r| r.0);
     let protected_rule = rule.as_ref().is_some_and(|r| r.tier == Tier::Protected);
-    let deletable = refused.or(if protected_rule { Some("Managed by Windows or its own tool".into()) } else { None });
-    Ok(Details { row: row(&ix, id, 0, false), parent: ix.parent(id), path, ancestors: anc, rule, guess, deletable })
+    let deletable = refused.or(if protected_rule {
+        Some("Managed by Windows or its own tool".into())
+    } else {
+        None
+    });
+    Ok(Details {
+        row: row(&ix, id, 0, false),
+        parent: ix.parent(id),
+        path,
+        ancestors: anc,
+        rule,
+        guess,
+        deletable,
+    })
 }
 
 #[tauri::command]
-fn layout_map(node: u32, width: f32, height: f32, mode: String, logical: bool, app: State<'_, Arc<App>>) -> Result<Response, String> {
+fn layout_map(
+    node: u32,
+    width: f32,
+    height: f32,
+    mode: String,
+    logical: bool,
+    app: State<'_, Arc<App>>,
+) -> Result<Response, String> {
     let (ix, marks) = {
         let s = app.scan.lock().unwrap();
         (s.index.clone().ok_or("No scan yet")?, s.marks.clone())
@@ -378,17 +485,31 @@ fn labels(ids: Vec<u32>, app: State<'_, Arc<App>>) -> Result<Vec<(String, u64)>,
     Ok(ids
         .into_iter()
         .take(1000)
-        .map(|i| if ix.contains(i) { (ix.name(i).to_string(), ix.allocated(i)) } else { (String::new(), 0) })
+        .map(|i| {
+            if ix.contains(i) {
+                (ix.name(i).to_string(), ix.allocated(i))
+            } else {
+                (String::new(), 0)
+            }
+        })
         .collect())
 }
 
 /// Row number of `id` in the flattened tree, for scrolling to a selection.
 #[tauri::command]
-fn tree_locate(id: u32, expanded: Vec<u32>, sort: String, app: State<'_, Arc<App>>) -> Result<Option<u32>, String> {
+fn tree_locate(
+    id: u32,
+    expanded: Vec<u32>,
+    sort: String,
+    app: State<'_, Arc<App>>,
+) -> Result<Option<u32>, String> {
     let ix = index(&app)?;
     let set: HashSet<u32> = expanded.into_iter().collect();
     let mut n = 0u32;
-    let mut stack: Vec<NodeId> = sorted_children(&ix, ROOT, &sort).into_iter().rev().collect();
+    let mut stack: Vec<NodeId> = sorted_children(&ix, ROOT, &sort)
+        .into_iter()
+        .rev()
+        .collect();
     while let Some(c) = stack.pop() {
         if c == id {
             return Ok(Some(n));
@@ -417,12 +538,28 @@ fn hover_info(id: u32, app: State<'_, Arc<App>>) -> Result<Hover, String> {
     if !ix.contains(id) {
         return Err("Unknown item".into());
     }
-    Ok(Hover { name: ix.name(id).into(), alloc: ix.allocated(id), files: ix.files(id), dir: ix.is_dir(id), modified: ix.modified(id), path: ix.path(id) })
+    Ok(Hover {
+        name: ix.name(id).into(),
+        alloc: ix.allocated(id),
+        files: ix.files(id),
+        dir: ix.is_dir(id),
+        modified: ix.modified(id),
+        path: ix.path(id),
+    })
 }
 
 #[tauri::command]
-fn search_index(query: String, limit: usize, app: State<'_, Arc<App>>) -> Result<SearchResult, String> {
-    Ok(search(&*index(&app)?, &query, limit.min(1000), now_filetime()))
+fn search_index(
+    query: String,
+    limit: usize,
+    app: State<'_, Arc<App>>,
+) -> Result<SearchResult, String> {
+    Ok(search(
+        &*index(&app)?,
+        &query,
+        limit.min(1000),
+        now_filetime(),
+    ))
 }
 
 #[derive(Serialize)]
@@ -435,12 +572,20 @@ struct Tops {
 #[tauri::command]
 fn tops(app: State<'_, Arc<App>>) -> Result<Tops, String> {
     let ix = index(&app)?;
-    Ok(Tops { files: top_files(&ix, 200), folders: top_folders(&ix, 200), types: top_types(&ix, 200) })
+    Ok(Tops {
+        files: top_files(&ix, 200),
+        folders: top_folders(&ix, 200),
+        types: top_types(&ix, 200),
+    })
 }
 
 #[tauri::command]
 fn timeline_weeks(weeks: usize, app: State<'_, Arc<App>>) -> Result<Vec<Week>, String> {
-    Ok(timeline(&*index(&app)?, weeks.clamp(4, 1040), now_filetime()))
+    Ok(timeline(
+        &*index(&app)?,
+        weeks.clamp(4, 1040),
+        now_filetime(),
+    ))
 }
 
 #[derive(Serialize)]
@@ -462,7 +607,11 @@ struct Accounting {
 fn accounting(app: State<'_, Arc<App>>) -> Result<Accounting, String> {
     let s = app.scan.lock().unwrap();
     let ix = s.index.clone().ok_or("No scan yet")?;
-    let drive = s.root.get(..2).map(|d| format!("{d}\\")).unwrap_or_default();
+    let drive = s
+        .root
+        .get(..2)
+        .map(|d| format!("{d}\\"))
+        .unwrap_or_default();
     let (total, free) = volume::free_space(&drive).unwrap_or((0, 0));
     let used = total.saturating_sub(free);
     let scanned = ix.allocated(ROOT);
@@ -521,7 +670,9 @@ fn reclaim_candidates(app: State<'_, Arc<App>>) -> Result<Vec<Candidate>, String
     let mut out = Vec::new();
     for r in &app.matcher.rules {
         for root in app.matcher.roots(&r.id) {
-            let Some(id) = find_path(&ix, &root) else { continue };
+            let Some(id) = find_path(&ix, &root) else {
+                continue;
+            };
             let bytes = ix.allocated(id);
             if bytes == 0 {
                 continue;
@@ -587,7 +738,9 @@ fn preview_plan(plan: Plan, app: State<'_, Arc<App>>) -> Result<Vec<Preview>, St
         .iter()
         .map(|i| Preview {
             path: i.path.clone(),
-            problem: plan::preflight(g, i).err().or_else(|| plan::cannot_recycle(i).map(String::from)),
+            problem: plan::preflight(g, i)
+                .err()
+                .or_else(|| plan::cannot_recycle(i).map(String::from)),
         })
         .collect())
 }
@@ -599,25 +752,48 @@ struct ExecDone {
 }
 
 #[tauri::command]
-async fn execute_plan(plan: Plan, elevated: bool, on_item: Channel<plan::ItemResult>, app: State<'_, Arc<App>>) -> Result<ExecDone, String> {
+async fn execute_plan(
+    plan: Plan,
+    elevated: bool,
+    on_item: Channel<plan::ItemResult>,
+    app: State<'_, Arc<App>>,
+) -> Result<ExecDone, String> {
     let app: Arc<App> = app.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let g = guard(&app)?.clone();
-        let drives: HashSet<String> = plan.items.iter().filter_map(|i| i.path.get(..2)).map(|d| format!("{d}\\")).collect();
-        let free = |ds: &HashSet<String>| ds.iter().filter_map(|d| volume::free_space(d)).map(|x| x.1 as i64).sum::<i64>();
+        let drives: HashSet<String> = plan
+            .items
+            .iter()
+            .filter_map(|i| i.path.get(..2))
+            .map(|d| format!("{d}\\"))
+            .collect();
+        let free = |ds: &HashSet<String>| {
+            ds.iter()
+                .filter_map(|d| volume::free_space(d))
+                .map(|x| x.1 as i64)
+                .sum::<i64>()
+        };
         let before = free(&drives);
         app.op_stop.store(false, Ordering::Relaxed);
         // The core's own check runs first even for elevated plans.
         let report = if elevated {
             for i in &plan.items {
-                g.check(&i.path).map_err(|r| format!("Refused {}: {}", i.path, r.0))?;
+                g.check(&i.path)
+                    .map_err(|r| format!("Refused {}: {}", i.path, r.0))?;
             }
             if !ensure_helper(&app)? {
-                return Err("Administrator permission was declined, so nothing changed.".to_string());
+                return Err(
+                    "Administrator permission was declined, so nothing changed.".to_string()
+                );
             }
             let mut h = app.helper.lock().unwrap();
             let p = h.as_mut().ok_or("Helper unavailable")?;
-            write_frame(p, tag::PLAN, &serde_json::to_vec(&plan).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+            write_frame(
+                p,
+                tag::PLAN,
+                &serde_json::to_vec(&plan).map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?;
             let report: Report = loop {
                 let (t, d) = read_frame(p).map_err(|e| e.to_string())?;
                 match t {
@@ -636,7 +812,10 @@ async fn execute_plan(plan: Plan, elevated: bool, on_item: Channel<plan::ItemRes
                 let _ = on_item.send(r.clone());
             })
         };
-        Ok(ExecDone { report, freed: free(&drives) - before })
+        Ok(ExecDone {
+            report,
+            freed: free(&drives) - before,
+        })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -681,7 +860,10 @@ fn append_action(app: &App, op: &str, path: &str, action: &str, reason: &str) {
         path: path.to_string(),
         method: plan::Method::Hold,
         outcome: plan::Outcome::Done,
-        reason: format!("{action}{}{reason}", if reason.is_empty() { "" } else { ": " }),
+        reason: format!(
+            "{action}{}{reason}",
+            if reason.is_empty() { "" } else { ": " }
+        ),
         bytes: 0,
         denied: false,
         held_at: None,
@@ -690,8 +872,15 @@ fn append_action(app: &App, op: &str, path: &str, action: &str, reason: &str) {
 }
 
 #[tauri::command]
-fn restore_held(held_at: String, original: String, op: String, app: State<'_, Arc<App>>) -> Result<(), String> {
-    guard(&app)?.check(&original).map_err(|r| format!("Refused: {}", r.0))?;
+fn restore_held(
+    held_at: String,
+    original: String,
+    op: String,
+    app: State<'_, Arc<App>>,
+) -> Result<(), String> {
+    guard(&app)?
+        .check(&original)
+        .map_err(|r| format!("Refused: {}", r.0))?;
     plan::restore(&held_at, &original)?;
     append_action(&app, &op, &original, "Restored", "");
     Ok(())
@@ -711,7 +900,10 @@ fn relocations_file(app: &App) -> String {
 }
 
 fn read_relocations(app: &App) -> Vec<relocate::Relocated> {
-    std::fs::read(relocations_file(app)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+    std::fs::read(relocations_file(app))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
 }
 
 fn write_relocations(app: &App, v: &[relocate::Relocated]) {
@@ -728,7 +920,12 @@ struct RelocateProgress {
 }
 
 #[tauri::command]
-async fn relocate_folder(source: String, dest_parent: String, on_progress: Channel<RelocateProgress>, app: State<'_, Arc<App>>) -> Result<relocate::Relocated, String> {
+async fn relocate_folder(
+    source: String,
+    dest_parent: String,
+    on_progress: Channel<RelocateProgress>,
+    app: State<'_, Arc<App>>,
+) -> Result<relocate::Relocated, String> {
     let app: Arc<App> = app.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let g = guard(&app)?.clone();
@@ -743,7 +940,13 @@ async fn relocate_folder(source: String, dest_parent: String, on_progress: Chann
         let mut v = read_relocations(&app);
         v.push(r.clone());
         write_relocations(&app, &v);
-        append_action(&app, "relocate", &r.source, "Relocated", &format!("to {}", r.dest));
+        append_action(
+            &app,
+            "relocate",
+            &r.source,
+            "Relocated",
+            &format!("to {}", r.dest),
+        );
         Ok(r)
     })
     .await
@@ -758,7 +961,10 @@ fn relocations(app: State<'_, Arc<App>>) -> Vec<relocate::Relocated> {
 #[tauri::command]
 fn relocate_undo(source: String, app: State<'_, Arc<App>>) -> Result<(), String> {
     let mut v = read_relocations(&app);
-    let i = v.iter().position(|r| r.source == source).ok_or("Unknown relocation")?;
+    let i = v
+        .iter()
+        .position(|r| r.source == source)
+        .ok_or("Unknown relocation")?;
     relocate::undo(guard(&app)?, &v[i])?;
     append_action(&app, "relocate", &source, "Undid relocation", "");
     v.remove(i);
@@ -769,9 +975,18 @@ fn relocate_undo(source: String, app: State<'_, Arc<App>>) -> Result<(), String>
 #[tauri::command]
 fn relocate_finish(source: String, app: State<'_, Arc<App>>) -> Result<(), String> {
     let mut v = read_relocations(&app);
-    let i = v.iter().position(|r| r.source == source).ok_or("Unknown relocation")?;
+    let i = v
+        .iter()
+        .position(|r| r.source == source)
+        .ok_or("Unknown relocation")?;
     relocate::finish(guard(&app)?, &v[i])?;
-    append_action(&app, "relocate", &source, "Removed original after relocation", "");
+    append_action(
+        &app,
+        "relocate",
+        &source,
+        "Removed original after relocation",
+        "",
+    );
     v.remove(i);
     write_relocations(&app, &v);
     Ok(())
@@ -827,11 +1042,23 @@ async fn run_uninstaller(key: String, app: State<'_, Arc<App>>) -> Result<Uninst
     let app: Arc<App> = app.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         // The command comes from the registry by key; the UI never supplies it.
-        let a = oz_win::apps::list().into_iter().find(|a| a.key == key).ok_or("That program is no longer listed")?;
+        let a = oz_win::apps::list()
+            .into_iter()
+            .find(|a| a.key == key)
+            .ok_or("That program is no longer listed")?;
         let exit_code = oz_win::apps::run_uninstaller(&a.uninstall)?;
         let still_installed = oz_win::apps::list().iter().any(|x| x.key == key);
-        append_action(&app, "uninstall", &a.name, "Ran uninstaller", &format!("exit {exit_code}, still listed: {still_installed}"));
-        Ok(UninstallResult { exit_code, still_installed })
+        append_action(
+            &app,
+            "uninstall",
+            &a.name,
+            "Ran uninstaller",
+            &format!("exit {exit_code}, still listed: {still_installed}"),
+        );
+        Ok(UninstallResult {
+            exit_code,
+            still_installed,
+        })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -868,10 +1095,19 @@ fn snapshot_save(app: State<'_, Arc<App>>) -> Result<(), String> {
         }
         (s.index.clone().ok_or("No scan yet")?, s.root.clone())
     };
-    let snap = Snapshot { time: now_filetime(), root, total: ix.allocated(ROOT), folders: folder_sizes(&ix, 6, 16 << 20) };
+    let snap = Snapshot {
+        time: now_filetime(),
+        root,
+        total: ix.allocated(ROOT),
+        folders: folder_sizes(&ix, 6, 16 << 20),
+    };
     let d = snapshots_dir(&app);
     std::fs::create_dir_all(&d).map_err(|e| e.to_string())?;
-    std::fs::write(format!("{d}\\{}.json", snap.time), serde_json::to_vec(&snap).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+    std::fs::write(
+        format!("{d}\\{}.json", snap.time),
+        serde_json::to_vec(&snap).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -880,8 +1116,20 @@ fn snapshot_list(app: State<'_, Arc<App>>) -> Vec<SnapshotMeta> {
     if let Ok(rd) = std::fs::read_dir(snapshots_dir(&app)) {
         for e in rd.flatten() {
             let p = e.path();
-            if let Some(s) = std::fs::read(&p).ok().and_then(|b| serde_json::from_slice::<Snapshot>(&b).ok()) {
-                v.push(SnapshotMeta { file: p.file_name().unwrap_or_default().to_string_lossy().into_owned(), time: s.time, root: s.root, total: s.total });
+            if let Some(s) = std::fs::read(&p)
+                .ok()
+                .and_then(|b| serde_json::from_slice::<Snapshot>(&b).ok())
+            {
+                v.push(SnapshotMeta {
+                    file: p
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned(),
+                    time: s.time,
+                    root: s.root,
+                    total: s.total,
+                });
             }
         }
     }
@@ -926,8 +1174,16 @@ fn compare_folders(was: &HashMap<String, u64>, now: &HashMap<String, u64>) -> Ve
     let mut all: Vec<Change> = keys
         .into_iter()
         .map(|k| {
-            let (b, a) = (was.get(k).copied().unwrap_or(0), now.get(k).copied().unwrap_or(0));
-            Change { path: k.clone(), before: b, after: a, delta: a as i64 - b as i64 }
+            let (b, a) = (
+                was.get(k).copied().unwrap_or(0),
+                now.get(k).copied().unwrap_or(0),
+            );
+            Change {
+                path: k.clone(),
+                before: b,
+                after: a,
+                delta: a as i64 - b as i64,
+            }
         })
         .filter(|c| c.delta.unsigned_abs() >= 1 << 20)
         .collect();
@@ -936,7 +1192,11 @@ fn compare_folders(was: &HashMap<String, u64>, now: &HashMap<String, u64>) -> Ve
     for c in all {
         let prefix = format!("{}\\", c.path.trim_end_matches('\\'));
         // Keep a parent only if children don't already explain most of its change.
-        let explained: i64 = kept.iter().filter(|k| k.path.starts_with(&prefix)).map(|k| k.delta).sum();
+        let explained: i64 = kept
+            .iter()
+            .filter(|k| k.path.starts_with(&prefix))
+            .map(|k| k.delta)
+            .sum();
         if (c.delta - explained).unsigned_abs() >= (c.delta.unsigned_abs() / 4).max(1 << 20) {
             kept.push(c);
         }
@@ -956,7 +1216,11 @@ fn export_csv(query: String, app: State<'_, Arc<App>>) -> Result<String, String>
     let file = format!("{dir}\\oz-cleaner-{}.csv", now_filetime());
     let mut w = std::io::BufWriter::new(std::fs::File::create(&file).map_err(|e| e.to_string())?);
     let write_err = |e: std::io::Error| e.to_string();
-    writeln!(w, "path,type,on_disk_bytes,logical_bytes,files,modified_filetime").map_err(write_err)?;
+    writeln!(
+        w,
+        "path,type,on_disk_bytes,logical_bytes,files,modified_filetime"
+    )
+    .map_err(write_err)?;
     let ids: Vec<NodeId> = if query.trim().is_empty() {
         ix.ids().collect()
     } else {
@@ -964,7 +1228,16 @@ fn export_csv(query: String, app: State<'_, Arc<App>>) -> Result<String, String>
     };
     for i in ids {
         let kind = if ix.is_dir(i) { "folder" } else { "file" };
-        writeln!(w, "{},{kind},{},{},{},{}", csv_field(&ix.path(i)), ix.allocated(i), ix.logical(i), ix.files(i), ix.modified(i)).map_err(write_err)?;
+        writeln!(
+            w,
+            "{},{kind},{},{},{},{}",
+            csv_field(&ix.path(i)),
+            ix.allocated(i),
+            ix.logical(i),
+            ix.files(i),
+            ix.modified(i)
+        )
+        .map_err(write_err)?;
     }
     w.flush().map_err(write_err)?;
     Ok(file)
@@ -988,7 +1261,12 @@ fn main() {
     let env = env_map();
     let rules = oz_rules::load(oz_rules::CATALOG).expect("built-in rule catalog is valid");
     let matcher = Matcher::new(rules, &env);
-    let data_dir = format!("{}\\OzCleaner", env.get("LOCALAPPDATA").cloned().unwrap_or_else(|| ".".into()));
+    let data_dir = format!(
+        "{}\\OzCleaner",
+        env.get("LOCALAPPDATA")
+            .cloned()
+            .unwrap_or_else(|| ".".into())
+    );
     let _ = std::fs::create_dir_all(&data_dir);
     let app = Arc::new(App {
         scan: Mutex::new(Scan::default()),
@@ -1003,11 +1281,45 @@ fn main() {
     tauri::Builder::default()
         .manage(app)
         .invoke_handler(tauri::generate_handler![
-            volumes, start_scan, cancel_scan, tree_page, details, layout_map, labels, tree_locate, hover_info, search_index, tops,
-            timeline_weeks, accounting, reveal, open_settings, reclaim_candidates, preview_plan, execute_plan,
-            stop_operation, component_cleanup, ledger_entries, restore_held, purge_held, relocate_folder,
-            relocations, relocate_undo, relocate_finish, installed_apps, run_uninstaller, snapshot_save,
-            snapshot_list, snapshot_delete, snapshot_compare, export_csv, data_location, clear_history
+            volumes,
+            start_scan,
+            cancel_scan,
+            tree_page,
+            details,
+            layout_map,
+            labels,
+            tree_locate,
+            hover_info,
+            search_index,
+            tops,
+            timeline_weeks,
+            accounting,
+            reveal,
+            open_settings,
+            reclaim_candidates,
+            preview_plan,
+            execute_plan,
+            stop_operation,
+            component_cleanup,
+            ledger_entries,
+            restore_held,
+            purge_held,
+            relocate_folder,
+            relocations,
+            relocate_undo,
+            relocate_finish,
+            installed_apps,
+            run_uninstaller,
+            snapshot_save,
+            snapshot_list,
+            snapshot_delete,
+            snapshot_compare,
+            export_csv,
+            data_location,
+            clear_history,
+            tweaks::tweaks_list,
+            tweaks::tweak_apply,
+            tweaks::tweak_revert
         ])
         .run(tauri::generate_context!())
         .expect("error while running Oz Cleaner");
@@ -1019,8 +1331,22 @@ mod tests {
 
     #[test]
     fn compare_shows_deepest_cause() {
-        let was: HashMap<_, _> = [("C:\\", 100u64 << 20), ("C:\\a", 50 << 20), ("C:\\a\\b", 10 << 20)].into_iter().map(|(k, v)| (k.to_string(), v)).collect();
-        let now: HashMap<_, _> = [("C:\\", 200u64 << 20), ("C:\\a", 150 << 20), ("C:\\a\\b", 110 << 20)].into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+        let was: HashMap<_, _> = [
+            ("C:\\", 100u64 << 20),
+            ("C:\\a", 50 << 20),
+            ("C:\\a\\b", 10 << 20),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v))
+        .collect();
+        let now: HashMap<_, _> = [
+            ("C:\\", 200u64 << 20),
+            ("C:\\a", 150 << 20),
+            ("C:\\a\\b", 110 << 20),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v))
+        .collect();
         let c = compare_folders(&was, &now);
         assert_eq!(c.len(), 1);
         assert_eq!(c[0].path, "C:\\a\\b");
@@ -1029,7 +1355,12 @@ mod tests {
 
     #[test]
     fn catalog_rules_never_target_guarded_paths_without_exception() {
-        let g = Guard::new(r"C:\Windows", r"C:\Users\me", &[r"C:\Program Files"], r"C:\ProgramData");
+        let g = Guard::new(
+            r"C:\Windows",
+            r"C:\Users\me",
+            &[r"C:\Program Files"],
+            r"C:\ProgramData",
+        );
         let env: HashMap<String, String> = [
             ("LOCALAPPDATA", r"C:\Users\me\AppData\Local"),
             ("WINDIR", r"C:\Windows"),
@@ -1040,9 +1371,17 @@ mod tests {
         .map(|(a, b)| (a.to_string(), b.to_string()))
         .collect();
         let m = Matcher::new(oz_rules::load(oz_rules::CATALOG).unwrap(), &env);
-        for r in m.rules.iter().filter(|r| r.action == Action::DeleteContents) {
+        for r in m
+            .rules
+            .iter()
+            .filter(|r| r.action == Action::DeleteContents)
+        {
             for root in m.roots(&r.id) {
-                assert!(g.check(&format!("{root}\\child")).is_ok(), "{} blocked by guard at {root}", r.id);
+                assert!(
+                    g.check(&format!("{root}\\child")).is_ok(),
+                    "{} blocked by guard at {root}",
+                    r.id
+                );
             }
         }
     }

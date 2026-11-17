@@ -35,9 +35,9 @@ explain = "Copies of packages npm has downloaded. npm's documentation describes 
 after = "npm downloads packages again as needed, so the next install is slower and needs a connection."
 tier = "Caution"
 category = "Developer"
-paths = ["%LOCALAPPDATA%\\npm-cache"]
+paths = ["%LOCALAPPDATA%\\npm-cache", "%LOCALAPPDATA%\\Packages\\Claude_pzs8sxrjxfjjc\\LocalCache\\Local\\npm-cache"]
 action = "delete_contents"
-verified = "2026-11-07, build 22631: path present. Location and behaviour from docs.npmjs.com/cli/commands/npm-cache."
+verified = "2026-11-07, build 22631: path present. Location and behaviour from docs.npmjs.com/cli/commands/npm-cache. 2026-11-17: the Claude desktop app (MSIX) keeps its own redirected npm cache in its package LocalCache; measured 532 MB; holds _cacache, _npx, _logs, the standard npm cache layout."
 
 [[rule]]
 id = "crash-dumps"

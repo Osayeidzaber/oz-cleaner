@@ -86,17 +86,48 @@ fn size(ix: &Index, id: NodeId, logical: bool) -> u64 {
 }
 
 /// Lays out `node`'s contents inside `w` x `h` pixels.
-pub fn treemap(ix: &Index, node: NodeId, w: f32, h: f32, max_depth: u8, now: i64, logical: bool) -> Vec<Instance> {
+pub fn treemap(
+    ix: &Index,
+    node: NodeId,
+    w: f32,
+    h: f32,
+    max_depth: u8,
+    now: i64,
+    logical: bool,
+) -> Vec<Instance> {
     let mut out = Vec::new();
     if !ix.contains(node) || w < 1.0 || h < 1.0 {
         return out;
     }
-    place(ix, node, R { x: 0.0, y: 0.0, w, h }, 0, max_depth, now, logical, &mut out);
+    place(
+        ix,
+        node,
+        R {
+            x: 0.0,
+            y: 0.0,
+            w,
+            h,
+        },
+        0,
+        max_depth,
+        now,
+        logical,
+        &mut out,
+    );
     out
 }
 
 #[allow(clippy::too_many_arguments)]
-fn place(ix: &Index, node: NodeId, r: R, depth: u8, max_depth: u8, now: i64, logical: bool, out: &mut Vec<Instance>) {
+fn place(
+    ix: &Index,
+    node: NodeId,
+    r: R,
+    depth: u8,
+    max_depth: u8,
+    now: i64,
+    logical: bool,
+    out: &mut Vec<Instance>,
+) {
     let total = size(ix, node, logical) as f64;
     if total <= 0.0 || r.w < 1.0 || r.h < 1.0 {
         return;
@@ -138,9 +169,19 @@ fn place(ix: &Index, node: NodeId, r: R, depth: u8, max_depth: u8, now: i64, log
         if ix.is_dir(id) && depth < max_depth && ix.flags(id) & flag::LINK == 0 {
             let inner = R {
                 x: rc.x + GUTTER,
-                y: rc.y + if rc.h > HEADER * 2.5 && rc.w > 48.0 { HEADER } else { GUTTER },
+                y: rc.y
+                    + if rc.h > HEADER * 2.5 && rc.w > 48.0 {
+                        HEADER
+                    } else {
+                        GUTTER
+                    },
                 w: rc.w - GUTTER * 2.0,
-                h: rc.h - if rc.h > HEADER * 2.5 && rc.w > 48.0 { HEADER + GUTTER } else { GUTTER * 2.0 },
+                h: rc.h
+                    - if rc.h > HEADER * 2.5 && rc.w > 48.0 {
+                        HEADER + GUTTER
+                    } else {
+                        GUTTER * 2.0
+                    },
             };
             if inner.w > 3.0 && inner.h > 3.0 {
                 place(ix, id, inner, depth + 1, max_depth, now, logical, out);
@@ -185,9 +226,19 @@ fn squarify(items: &[(NodeId, f64)], r: R, out: &mut Vec<(NodeId, R)>) {
         for it in &items[i..j] {
             let len = ((it.1 * scale) / (thick as f64)) as f32;
             let rc = if free.w >= free.h {
-                R { x: free.x, y: free.y + pos, w: thick, h: len }
+                R {
+                    x: free.x,
+                    y: free.y + pos,
+                    w: thick,
+                    h: len,
+                }
             } else {
-                R { x: free.x + pos, y: free.y, w: len, h: thick }
+                R {
+                    x: free.x + pos,
+                    y: free.y,
+                    w: len,
+                    h: thick,
+                }
             };
             out.push((it.0, rc));
             pos += len;
@@ -204,7 +255,15 @@ fn squarify(items: &[(NodeId, f64)], r: R, out: &mut Vec<(NodeId, R)>) {
 }
 
 /// Icicle: each row one depth level, width proportional to size (F-12).
-pub fn strata(ix: &Index, node: NodeId, w: f32, h: f32, levels: u8, now: i64, logical: bool) -> Vec<Instance> {
+pub fn strata(
+    ix: &Index,
+    node: NodeId,
+    w: f32,
+    h: f32,
+    levels: u8,
+    now: i64,
+    logical: bool,
+) -> Vec<Instance> {
     let mut out = Vec::new();
     if !ix.contains(node) || size(ix, node, logical) == 0 {
         return out;
@@ -215,7 +274,12 @@ pub fn strata(ix: &Index, node: NodeId, w: f32, h: f32, levels: u8, now: i64, lo
         if out.len() >= MAX_INSTANCES {
             break;
         }
-        let r = R { x, y: d as f32 * row, w: width, h: row };
+        let r = R {
+            x,
+            y: d as f32 * row,
+            w: width,
+            h: row,
+        };
         out.push(inst(ix, id, r, d, 0, now));
         if d + 1 >= levels || !ix.is_dir(id) || ix.flags(id) & flag::LINK != 0 {
             continue;
@@ -233,7 +297,19 @@ pub fn strata(ix: &Index, node: NodeId, w: f32, h: f32, levels: u8, now: i64, lo
             }
         }
         if rest >= 1.0 {
-            out.push(inst(ix, id, R { x: cx, y: (d + 1) as f32 * row, w: rest, h: row }, d + 1, kind::SMALL, now));
+            out.push(inst(
+                ix,
+                id,
+                R {
+                    x: cx,
+                    y: (d + 1) as f32 * row,
+                    w: rest,
+                    h: row,
+                },
+                d + 1,
+                kind::SMALL,
+                now,
+            ));
         }
     }
     out
@@ -311,7 +387,10 @@ mod tests {
 
     #[test]
     fn encoding_is_24_bytes() {
-        assert_eq!(encode(&treemap(&ix(), ROOT, 100.0, 100.0, 0, 0, false)).len() % 24, 0);
+        assert_eq!(
+            encode(&treemap(&ix(), ROOT, 100.0, 100.0, 0, 0, false)).len() % 24,
+            0
+        );
     }
 
     #[test]
