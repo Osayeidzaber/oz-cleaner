@@ -50,7 +50,7 @@ export function SettingsScreen({ prefs, setPrefs }: { prefs: Prefs; setPrefs: (p
         <div className="setting">
           <div>
             <h2 className="title">About</h2>
-            <p className="muted">Oz Cleaner 0.1.0, by Osayeed Zaber. All rights reserved.</p>
+            <p className="muted">Oz Cleaner 0.1.0, by Osayeed Zaber. MIT License.</p>
             <p className="muted">Fonts under the SIL Open Font License: Bricolage Grotesque, JetBrains Mono, Instrument Serif. Built with Tauri and React.</p>
           </div>
         </div>

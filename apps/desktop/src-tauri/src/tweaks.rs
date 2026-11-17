@@ -1,5 +1,5 @@
-//! Tweak commands (D-14). Lists every catalogued tweak with its live state. Applies only verified
-//! tweaks, saving the prior state first so Undo restores exactly what was there.
+//! Tweak commands (D-14). Lists every catalogued tweak with its live state, applies per-user tweaks
+//! in-process and machine-wide ones through the elevated helper, saving the prior state first.
 use crate::App;
 use oz_tweaks::{Kind, Restart, Tier, Tweak};
 use oz_win::tweak::{self as w, RegVal};
@@ -35,6 +35,7 @@ fn save_store(app: &App, s: &HashMap<String, Saved>) -> Result<(), String> {
     std::fs::write(store_path(app), b).map_err(|e| format!("couldn't save the undo record: {e}"))
 }
 
+#[cfg(test)]
 fn encode(v: &Option<RegVal>) -> String {
     match v {
         None => "none".into(),
@@ -42,6 +43,7 @@ fn encode(v: &Option<RegVal>) -> String {
         Some(RegVal::Sz(s)) => format!("sz:{s}"),
     }
 }
+#[cfg(test)]
 fn decode(s: &str) -> Option<RegVal> {
     if let Some(d) = s.strip_prefix("dword:") {
         return d.parse().ok().map(RegVal::Dword);
@@ -129,13 +131,26 @@ pub struct TweakDto {
 }
 
 fn lock_reason(t: &Tweak) -> Option<String> {
-    if t.needs_admin {
-        return Some("Machine-wide: needs the elevated helper and a Sandbox test".into());
+    (!t.applicable()).then(|| "Explain only".to_string())
+}
+
+/// Machine-wide tweaks go to the elevated helper by id; it returns the prior state it saw.
+fn via_helper(app: &App, tag_: u8, body: &[u8]) -> Result<String, String> {
+    use oz_win::elevate::{read_frame, tag, write_frame};
+    if !crate::ensure_helper(app)? {
+        return Err("Administrator permission was declined, so nothing changed.".into());
     }
-    if !t.applicable() {
-        return Some("Explain only".into());
+    let mut h = app.helper.lock().map_err(|_| "helper busy")?;
+    let p = h.as_mut().ok_or("Helper unavailable")?;
+    write_frame(p, tag_, body).map_err(|e| e.to_string())?;
+    loop {
+        let (t, d) = read_frame(p).map_err(|e| e.to_string())?;
+        match t {
+            tag::TWEAK_DONE => return Ok(String::from_utf8_lossy(&d).into_owned()),
+            tag::ERROR => return Err(String::from_utf8_lossy(&d).into_owned()),
+            _ => {}
+        }
     }
-    None
 }
 
 #[tauri::command]
@@ -171,63 +186,59 @@ fn find(id: &str) -> Result<&'static Tweak, String> {
 }
 
 #[tauri::command]
-pub fn tweak_apply(id: String, app: State<'_, Arc<App>>) -> Result<(), String> {
-    let t = find(&id)?;
-    if let Some(r) = lock_reason(t) {
-        return Err(r);
-    }
-    let mut store = load_store(&app);
-    // Record the prior state before touching anything; never overwrite an earlier record.
-    let prior = match t.kind {
-        Kind::RegDword | Kind::RegSz => encode(&w::reg_read(
-            t.hive.as_deref().unwrap_or(""),
-            t.key.as_deref().unwrap_or(""),
-            t.value.as_deref().unwrap_or(""),
-        )?),
-        Kind::PowerPlan => format!("scheme:{}", w::active_scheme()?),
-        Kind::PowerSetting => return Err("Needs the elevated helper, not built yet".into()),
-    };
-    store.entry(id.clone()).or_insert(Saved {
-        prior,
-        time: oz_win::now_filetime(),
-    });
-    save_store(&app, &store)?;
-    match t.kind {
-        Kind::RegDword | Kind::RegSz => w::reg_write(
-            t.hive.as_deref().unwrap_or(""),
-            t.key.as_deref().unwrap_or(""),
-            t.value.as_deref().unwrap_or(""),
-            &target(t).ok_or("bad target")?,
-        ),
-        Kind::PowerPlan => w::set_active_scheme(&t.on),
-        Kind::PowerSetting => unreachable!(),
-    }
+pub async fn tweak_apply(id: String, app: State<'_, Arc<App>>) -> Result<(), String> {
+    let app: Arc<App> = app.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let t = find(&id)?;
+        if let Some(r) = lock_reason(t) {
+            return Err(r);
+        }
+        let mut store = load_store(&app);
+        if t.per_user() {
+            // Record the prior state before touching anything; never overwrite an earlier record.
+            let prior = oz_win::tweak_exec::prior(t)?;
+            store.entry(id.clone()).or_insert(Saved {
+                prior,
+                time: oz_win::now_filetime(),
+            });
+            save_store(&app, &store)?;
+            oz_win::tweak_exec::apply(t, false)
+        } else {
+            let prior = via_helper(&app, oz_win::elevate::tag::TWEAK_APPLY, id.as_bytes())?;
+            store.entry(id.clone()).or_insert(Saved {
+                prior,
+                time: oz_win::now_filetime(),
+            });
+            save_store(&app, &store)
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn tweak_revert(id: String, app: State<'_, Arc<App>>) -> Result<(), String> {
-    let t = find(&id)?;
-    let mut store = load_store(&app);
-    let Some(saved) = store.get(&id).cloned() else {
-        return Err("Nothing to undo: Oz didn't change this setting.".into());
-    };
-    match t.kind {
-        Kind::RegDword | Kind::RegSz => {
-            let (h, k, v) = (
-                t.hive.as_deref().unwrap_or(""),
-                t.key.as_deref().unwrap_or(""),
-                t.value.as_deref().unwrap_or(""),
-            );
-            match decode(&saved.prior) {
-                Some(x) => w::reg_write(h, k, v, &x)?,
-                None => w::reg_delete(h, k, v)?,
-            }
+pub async fn tweak_revert(id: String, app: State<'_, Arc<App>>) -> Result<(), String> {
+    let app: Arc<App> = app.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let t = find(&id)?;
+        let mut store = load_store(&app);
+        let Some(saved) = store.get(&id).cloned() else {
+            return Err("Nothing to undo: Oz didn't change this setting.".into());
+        };
+        if t.per_user() {
+            oz_win::tweak_exec::revert(t, &saved.prior, false)?;
+        } else {
+            via_helper(
+                &app,
+                oz_win::elevate::tag::TWEAK_REVERT,
+                format!("{id}\n{}", saved.prior).as_bytes(),
+            )?;
         }
-        Kind::PowerPlan => w::set_active_scheme(saved.prior.strip_prefix("scheme:").unwrap_or(""))?,
-        Kind::PowerSetting => return Err("Needs the elevated helper, not built yet".into()),
-    }
-    store.remove(&id);
-    save_store(&app, &store)
+        store.remove(&id);
+        save_store(&app, &store)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]

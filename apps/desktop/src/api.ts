@@ -30,6 +30,10 @@ export interface LedgerEntry { time: number; op: string; path: string; method: M
 
 export interface TweakInfo { id: string; name: string; explain: string; category: string; tier: "Recommended" | "Optional" | "ExplainOnly"; restart: "none" | "explorer" | "signout" | "reboot"; needs_admin: boolean; evidence: string; state: "on" | "off" | "default" | "unknown"; current: string; applied: boolean; locked: string | null; }
 
+export interface Leftover { path: string; kind: "folder" | "shortcut" | "registry"; confidence: "Certain" | "Likely" | "Name only" | "Shared" | "Keep"; reason: string; bytes: number; preselect: boolean; }
+
+export interface BloatApp { family: string; name: string; explain: string; recommended: boolean; installed: boolean; removable: boolean; }
+
 export type ScanEvent =
   | { type: "progress" | "partial"; items: number; bytes: number; ms: number }
   | { type: "done"; items: number; ms: number; partial: boolean; mode: string }
@@ -79,7 +83,9 @@ export const api = {
   relocateUndo: (source: string) => invoke<void>("relocate_undo", { source }),
   relocateFinish: (source: string) => invoke<void>("relocate_finish", { source }),
   apps: () => invoke<AppEntry[]>("installed_apps"),
-  uninstall: (key: string) => invoke<{ exit_code: number; still_installed: boolean }>("run_uninstaller", { key }),
+  uninstall: (key: string) => invoke<{ exit_code: number; still_installed: boolean; leftovers: Leftover[] }>("run_uninstaller", { key }),
+  removeRegLeftovers: (keys: string[]) => invoke<string>("remove_registry_leftovers", { keys }),
+  restoreRegBackup: (file: string) => invoke<void>("restore_registry_backup", { file }),
   snapshotSave: () => invoke<void>("snapshot_save"),
   snapshots: () => invoke<SnapshotMeta[]>("snapshot_list"),
   snapshotDelete: (file: string) => invoke<void>("snapshot_delete", { file }),
@@ -88,6 +94,9 @@ export const api = {
   dataLocation: () => invoke<string>("data_location"),
   clearHistory: () => invoke<void>("clear_history"),
   tweaks: () => invoke<TweakInfo[]>("tweaks_list"),
+  bloatList: () => invoke<BloatApp[]>("bloat_list"),
+  bloatRemove: (family: string) => invoke<void>("bloat_remove", { family }),
+  openStore: (family: string) => invoke<void>("open_store", { family }),
   tweakApply: (id: string) => invoke<void>("tweak_apply", { id }),
   tweakRevert: (id: string) => invoke<void>("tweak_revert", { id }),
 };

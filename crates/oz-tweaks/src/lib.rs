@@ -1,6 +1,8 @@
 //! Tweak catalog loader and safety checks (D-14, AGENTS.md section 6). Pure: no Windows calls.
 #![forbid(unsafe_code)]
 
+pub mod bloat;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,15 +62,17 @@ impl Tweak {
     /// Per-user tweaks: HKCU values and the active power plan (AGENTS.md section 6).
     pub fn per_user(&self) -> bool {
         match self.kind {
-            Kind::RegDword | Kind::RegSz => self.hive.as_deref() == Some("HKCU") && !self.needs_admin,
+            Kind::RegDword | Kind::RegSz => {
+                self.hive.as_deref() == Some("HKCU") && !self.needs_admin
+            }
             Kind::PowerPlan => !self.needs_admin,
             Kind::PowerSetting => false,
         }
     }
 
-    /// Per-user tweaks may be applied on the owner's say-so; machine-wide ones need a recorded Sandbox test.
+    /// Owner decisions 2026-11-17: per-user and machine-wide tweaks may be applied with prior-value undo.
     pub fn applicable(&self) -> bool {
-        self.tier != Tier::ExplainOnly && (self.per_user() || !self.verified.trim().is_empty())
+        self.tier != Tier::ExplainOnly
     }
 }
 
@@ -176,14 +180,13 @@ mod tests {
     fn real_catalog_loads() {
         let t = load(CATALOG).unwrap();
         assert!(t.len() >= 75);
-        // Machine-wide tweaks stay locked until a Sandbox test is recorded.
+        // Anything that isn't per-user must be marked as needing admin, so it goes through the helper.
         for x in &t {
             if !x.per_user() {
-                assert_eq!(x.applicable(), !x.verified.is_empty(), "{}", x.id);
-                assert!(x.needs_admin || x.kind == Kind::PowerPlan, "{}", x.id);
+                assert!(x.needs_admin, "{}", x.id);
             }
         }
-        assert!(t.iter().filter(|x| x.applicable()).count() > 50);
+        assert!(t.iter().filter(|x| x.applicable()).count() > 70);
     }
 
     #[test]

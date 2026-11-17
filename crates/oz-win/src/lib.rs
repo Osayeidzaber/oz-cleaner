@@ -1,9 +1,12 @@
 //! All Windows FFI lives here (A-5).
 pub mod apps;
+pub mod appx;
 pub mod elevate;
 pub mod fsops;
 pub mod mft;
+pub mod regtree;
 pub mod tweak;
+pub mod tweak_exec;
 pub mod volume;
 pub mod walk;
 

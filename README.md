@@ -1,8 +1,11 @@
 <div align="center">
 
-<img src="docs/readme/hero.svg" alt="OZ — CLEANER. Explore. Clean. Debloat." width="100%">
+<img src="docs/readme/hero.svg" alt="Oz Cleaner, by Oz Studios. Explore. Clean. Debloat." width="100%">
 
 <br>
+
+# Oz Cleaner
+<sub>BY <b>OZ STUDIOS</b></sub>
 
 ## Your drive is full of junk. Oz knows which junk.
 
@@ -14,6 +17,7 @@ See what fills a drive. Clean what rebuilds itself. Remove the bloat. Undo all o
 ![status](https://img.shields.io/badge/STATUS-PRE--RELEASE-000000?style=for-the-badge&labelColor=000000&color=1f1f1f)
 ![platform](https://img.shields.io/badge/WINDOWS-NTFS-000000?style=for-the-badge&labelColor=000000&color=1f1f1f)
 ![telemetry](https://img.shields.io/badge/TELEMETRY-ZERO-000000?style=for-the-badge&labelColor=000000&color=1f1f1f)
+![license](https://img.shields.io/badge/LICENSE-MIT-000000?style=for-the-badge&labelColor=000000&color=1f1f1f)
 ![core](https://img.shields.io/badge/CORE-RUST-000000?style=for-the-badge&labelColor=000000&color=1f1f1f)
 
 <sub><a href="#00--the-pitch">PITCH</a> &nbsp;·&nbsp; <a href="#01--three-jobs-one-app">FEATURES</a> &nbsp;·&nbsp; <a href="#02--the-rules">RULES</a> &nbsp;·&nbsp; <a href="#03--under-the-hood">ARCHITECTURE</a> &nbsp;·&nbsp; <a href="#04--where-it-stands">ROADMAP</a> &nbsp;·&nbsp; <a href="#05--questions-you-might-have">FAQ</a></sub>
@@ -90,14 +94,31 @@ Each tool's folder is split down the middle:
 </details>
 
 <details>
-<summary><b>🧰 &nbsp;DEBLOAT</b> &nbsp;—&nbsp; preinstalled apps and features, every change reversible</summary>
+<summary><b>🧰 &nbsp;DEBLOAT</b> &nbsp;—&nbsp; 77 catalogued Windows tweaks, every one reversible</summary>
 <br>
 
-- Only documented Microsoft mechanisms: `Remove-AppxPackage` (current user), DISM / optional features, documented policy values, Task Scheduler, the Service Control Manager.
-- Every tweak's catalog entry lists its exact targets, apply action, revert action, tested builds, and `verified`.
-- Apply → revert → compare runs in a VM or Sandbox as an automated test before a tweak ships.
-- Tiered **Recommended**, **Optional**, **Explain only**. No mystery "apply everything" button.
+The **Tweaks** catalog (`crates/oz-tweaks/catalog.toml`) has **77** entries today. Each one shows its live state on your machine, and each can be undone.
+
+| Category | Tweaks | | Tier | Tweaks |
+|---|:---:|---|---|:---:|
+| Privacy | 31 | | **Recommended** | 21 |
+| Performance | 17 | | **Optional** | 56 |
+| Taskbar | 14 | | | |
+| Explorer | 11 | | **Scope** | |
+| Accessibility | 3 | | per-user (HKCU, power plan) | 70 |
+| Storage | 1 | | machine-wide (HKLM, needs admin) | 7 |
+
+Examples: no ads or suggestions in Start, no tips nags, Copilot off, file extensions shown, taskbar icons on the left, Game Mode, hardware-accelerated GPU scheduling.
+
+**How a tweak gets applied**
+
+- **Per-user** tweaks (your `HKCU` values and the active power plan) are written by the app itself. The prior value is saved first, so Undo puts back exactly what was there.
+- **Machine-wide** tweaks (`HKLM`, power settings) go through the elevated helper, which only knows two fixed operations: `TWEAK_APPLY` and `TWEAK_REVERT`. Both take a **catalog id**, never a registry path or a command.
+- Only documented Microsoft mechanisms. Each catalog entry lists its exact key and value, its tier, whether it needs a restart, and its evidence.
+- Tiered **Recommended**, **Optional**, **Explain only**. No mystery "apply everything" button: you see every change before it happens.
 - A System Restore point is offered before each batch. One-click **Undo all**, always.
+
+<sub>Coming next: removing preinstalled apps (`Remove-AppxPackage`, current user) and optional features. Not in the catalog yet.</sub>
 
 <img src="docs/readme/undo.svg" alt="A tweak toggles on, the prior value is saved to the Ledger, Undo all flips it back" width="100%">
 
@@ -145,14 +166,48 @@ Oz has a short list of things it will **never** do. These aren't settings. They'
 - elevate the UI. The helper accepts a fixed enum of operations, never a command string
 - phone home. No network calls, no telemetry. Your file paths stay on your machine
 - recommend your files for deletion because of their name, age or type
+- write to the registry outside the catalog. No arbitrary keys, ever
+- run cleaning or debloat experiments on a real system. Destructive tests live in a VM, Sandbox or fixture drive
 ```
 
 ```diff
 + show why every item matched, with a confidence level
-+ save prior state to the Ledger before every write
-+ offer Undo for every batch
++ write only the exact key and value a tweak's catalog entry lists
++ save the prior value (or its absence) before every write
++ apply machine-wide tweaks only through the helper, by catalog id
++ offer a restore point before a batch, and Undo for every batch
 + say "not sure" when it's not sure
 ```
+
+<details>
+<summary><b>THE TWEAK GATE</b> &nbsp;·&nbsp; what a tweak needs before it ships</summary>
+<br>
+
+| Every tweak | Per-user (HKCU, power plan) | Machine-wide (HKLM, power settings) |
+|---|---|---|
+| documented Microsoft mechanism | ✓ | ✓ |
+| catalog entry: exact targets, apply, revert, builds, `verified` | ✓ | ✓ |
+| prior value saved, working Undo | ✓ | ✓ |
+| tier: Recommended / Optional / Explain only | ✓ | ✓ |
+| applied by | the app | the elevated helper, by id |
+| Sandbox apply → revert → compare test | wanted | wanted, added when Sandbox is available |
+
+The write-and-undo mechanism itself is tested on an app-owned scratch key. Security and update settings are off the table for every tier.
+
+</details>
+
+<details>
+<summary><b>THE CLEANING GATE</b> &nbsp;·&nbsp; what a cleaning rule needs before it ships</summary>
+<br>
+
+1. The path exists and holds what it claims.
+2. What regenerates it, and what losing it costs, is confirmed from vendor docs or a controlled test.
+3. `verified` is filled in: date, Windows build, method.
+4. A test exists.
+
+Unsure? It becomes **Keep** and Oz only explains it.
+
+</details>
 
 And one more: Oz is **not an app installer**. It removes; it doesn't fetch.
 
@@ -236,6 +291,18 @@ cargo clippy --workspace -- -D warnings
 cargo test --workspace
 ```
 
+Build the helper, then the app and its installer:
+
+```bash
+cargo build --release -p oz-helper
+```
+
+```bash
+cd apps/desktop && npm ci && npx tauri build
+```
+
+The installer lands in `target/release/bundle/nsis/`. The portable app is `target/release/oz-cleaner.exe`; keep `oz-helper.exe` in the same folder.
+
 Destructive tests run only against the fixture VHDX, a scratch folder the test makes, or a disposable VM / Windows Sandbox. Never a real system.
 
 </details>
@@ -244,7 +311,7 @@ Destructive tests run only against the fixture VHDX, a scratch folder the test m
 
 ### 04 — WHERE IT STANDS
 
-The honest version: code for M1–M6 exists, **no exit check is recorded as run yet**, and Debloat is in progress. A milestone counts as done only when every exit check has actually been run.
+The honest version: code for M1–M6b exists and builds into a working app and installer, but **no milestone exit check is recorded as run yet**. Done: Explore, Clean, 77 tweaks with live state and Undo (machine-wide ones through the elevated helper), Uninstall A to Z with leftover finding, and removal of built-in apps. A milestone counts as done only when every exit check has actually been run.
 
 | | Milestone | Status |
 |---|---|:---:|
@@ -280,7 +347,7 @@ No. Chats, settings, memory and credentials of AI tools are personal data and al
 <details>
 <summary><b>Why does it need admin?</b></summary>
 <br>
-It doesn't, unless you choose Fast scan or Debloat. Even then only the small helper elevates, and it only speaks a fixed list of operations. The window you click on never runs as admin.
+It doesn't, unless you choose Fast scan or one of the 7 machine-wide tweaks. Per-user tweaks need no admin at all. Even then only the small helper elevates, and it only speaks a fixed list of operations. The window you click on never runs as admin.
 </details>
 
 <details>
@@ -335,6 +402,7 @@ Same spirit for the Explore part (fast MFT scan, treemap), but its own code, loo
 | [`02-FEATURE-SPEC`](02-FEATURE-SPEC.md) | what, by F-ID |
 | [`03-ARCHITECTURE`](03-ARCHITECTURE.md) | how, by decision |
 | [`04-ROADMAP`](04-ROADMAP.md) | where it stands |
+| [`LICENSE`](LICENSE) | MIT. Use it, fork it, keep the notice |
 
 <br>
 
@@ -348,6 +416,18 @@ Same spirit for the Explore part (fast MFT scan, treemap), but its own code, loo
  ██████  ███████   — CLEANER
 ```
 
-<sub>BY OSAYEED ZABER &nbsp;·&nbsp; IN THE SPIRIT OF ZABER.TECH &nbsp;·&nbsp; MADE WITH TOO MUCH BLACK</sub>
+</div>
+
+<br>
+
+<img src="docs/readme/footer.svg" alt="Oz Studios. Made by Osayeed Zaber." width="100%">
+
+<div align="center">
+
+<br>
+
+**Oz Cleaner** is made by **[Oz Studios](https://zaber.tech)** &nbsp;·&nbsp; founded by **Osayeed Zaber**
+
+<sub>© 2026 OSAYEED ZABER &nbsp;·&nbsp; MIT LICENSE &nbsp;·&nbsp; MADE WITH TOO MUCH BLACK</sub>
 
 </div>

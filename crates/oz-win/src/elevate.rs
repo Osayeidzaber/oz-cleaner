@@ -232,6 +232,9 @@ pub mod tag {
     pub const PLAN: u8 = 3;
     pub const COMPONENT_CLEANUP: u8 = 4;
     pub const SHUTDOWN: u8 = 5;
+    pub const TWEAK_APPLY: u8 = 6;
+    pub const TWEAK_REVERT: u8 = 7;
+    pub const TWEAK_DONE: u8 = 15;
     pub const RECORDS: u8 = 10;
     pub const SCAN_DONE: u8 = 11;
     pub const ERROR: u8 = 12;

@@ -4,7 +4,7 @@ use crate::wide;
 use windows_sys::core::GUID;
 use windows_sys::Win32::Foundation::{LocalFree, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS};
 use windows_sys::Win32::System::Power::{
-    PowerGetActiveScheme, PowerReadACValueIndex, PowerSetActiveScheme,
+    PowerGetActiveScheme, PowerReadACValueIndex, PowerSetActiveScheme, PowerWriteACValueIndex,
 };
 use windows_sys::Win32::System::Registry::*;
 
@@ -93,6 +93,20 @@ pub fn reg_write(hive: &str, key: &str, value: &str, v: &RegVal) -> Result<(), S
     if hive != "HKCU" {
         return Err("machine-wide settings are applied by the elevated helper".into());
     }
+    write_any(hive, key, value, v)
+}
+
+/// Helper-only: writes HKCU or HKLM. The helper calls this only for catalogued tweak ids.
+pub fn reg_write_machine(hive: &str, key: &str, value: &str, v: &RegVal) -> Result<(), String> {
+    write_any(hive, key, value, v)
+}
+
+/// Helper-only counterpart of `reg_delete`.
+pub fn reg_delete_machine(hive: &str, key: &str, value: &str) -> Result<(), String> {
+    delete_any(hive, key, value)
+}
+
+fn write_any(hive: &str, key: &str, value: &str, v: &RegVal) -> Result<(), String> {
     let r = root(hive).ok_or("bad hive")?;
     let (k, name) = (wide(key), wide(value));
     let mut h: HKEY = std::ptr::null_mut();
@@ -146,6 +160,10 @@ pub fn reg_delete(hive: &str, key: &str, value: &str) -> Result<(), String> {
     if hive != "HKCU" {
         return Err("machine-wide settings are applied by the elevated helper".into());
     }
+    delete_any(hive, key, value)
+}
+
+fn delete_any(hive: &str, key: &str, value: &str) -> Result<(), String> {
     let Some(k) = open(hive, key, KEY_SET_VALUE)? else {
         return Ok(());
     };
@@ -221,6 +239,26 @@ pub fn power_value(subgroup: &str, setting: &str) -> Result<u32, String> {
         return Err(format!("couldn't read the power setting ({e})"));
     }
     Ok(v)
+}
+
+/// Helper-only: sets the AC value of a power setting in the active scheme and re-applies the scheme.
+pub fn set_power_value(subgroup: &str, setting: &str, value: u32) -> Result<(), String> {
+    let scheme = parse_guid(&active_scheme()?).ok_or("bad scheme")?;
+    let (sg, st) = (
+        parse_guid(subgroup).ok_or("bad GUID")?,
+        parse_guid(setting).ok_or("bad GUID")?,
+    );
+    // SAFETY: valid GUID pointers.
+    let e = unsafe { PowerWriteACValueIndex(std::ptr::null_mut(), &scheme, &sg, &st, value) };
+    if e != ERROR_SUCCESS {
+        return Err(format!("Windows refused to change the power setting ({e})"));
+    }
+    // SAFETY: valid GUID pointer; re-activating applies the new value.
+    let e = unsafe { PowerSetActiveScheme(std::ptr::null_mut(), &scheme) };
+    if e != ERROR_SUCCESS {
+        return Err(format!("Windows refused to apply the power setting ({e})"));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

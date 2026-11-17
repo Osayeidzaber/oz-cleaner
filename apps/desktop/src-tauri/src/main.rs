@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 //! Tauri core. Runs unelevated (A-3). The UI can only call the commands below.
 mod analysis;
+mod debloat;
+mod leftovers;
 mod tweaks;
 
 use analysis::*;
@@ -248,7 +250,7 @@ fn helper_exe() -> Result<String, String> {
 }
 
 /// Launches the helper once per session; returns Ok(false) if UAC was declined.
-fn ensure_helper(app: &App) -> Result<bool, String> {
+pub(crate) fn ensure_helper(app: &App) -> Result<bool, String> {
     let mut h = app.helper.lock().unwrap();
     if h.is_some() {
         return Ok(true);
@@ -855,7 +857,7 @@ fn ledger_entries(app: State<'_, Arc<App>>) -> Vec<serde_json::Value> {
     v
 }
 
-fn append_action(app: &App, op: &str, path: &str, action: &str, reason: &str) {
+pub(crate) fn append_action(app: &App, op: &str, path: &str, action: &str, reason: &str) {
     let r = plan::ItemResult {
         path: path.to_string(),
         method: plan::Method::Hold,
@@ -1035,6 +1037,7 @@ fn installed_apps(app: State<'_, Arc<App>>) -> Vec<AppDto> {
 struct UninstallResult {
     exit_code: i32,
     still_installed: bool,
+    leftovers: Vec<leftovers::Leftover>,
 }
 
 #[tauri::command]
@@ -1055,9 +1058,17 @@ async fn run_uninstaller(key: String, app: State<'_, Arc<App>>) -> Result<Uninst
             "Ran uninstaller",
             &format!("exit {exit_code}, still listed: {still_installed}"),
         );
+        // Only look for leftovers once the program is really gone.
+        let others = oz_win::apps::list();
+        let leftovers = if still_installed {
+            Vec::new()
+        } else {
+            leftovers::find(&app, &a.name, &a.publisher, &a.location, &others)
+        };
         Ok(UninstallResult {
             exit_code,
             still_installed,
+            leftovers,
         })
     })
     .await
@@ -1319,7 +1330,12 @@ fn main() {
             clear_history,
             tweaks::tweaks_list,
             tweaks::tweak_apply,
-            tweaks::tweak_revert
+            tweaks::tweak_revert,
+            leftovers::remove_registry_leftovers,
+            leftovers::restore_registry_backup,
+            debloat::bloat_list,
+            debloat::bloat_remove,
+            debloat::open_store
         ])
         .run(tauri::generate_context!())
         .expect("error while running Oz Cleaner");

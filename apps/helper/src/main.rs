@@ -33,6 +33,8 @@ fn main() {
             tag::SCAN => scan(&mut pipe, &data),
             tag::PLAN => plan(&mut pipe, &data),
             tag::COMPONENT_CLEANUP => cleanup(&mut pipe),
+            tag::TWEAK_APPLY => tweak(&mut pipe, &data, false),
+            tag::TWEAK_REVERT => tweak(&mut pipe, &data, true),
             tag::SHUTDOWN => return,
             _ => write_frame(&mut pipe, tag::ERROR, b"unknown request").is_ok(),
         };
@@ -101,4 +103,33 @@ fn cleanup(pipe: &mut Pipe) -> bool {
         Err(e) => e.to_string(),
     };
     write_frame(pipe, tag::TOOL_DONE, msg.as_bytes()).is_ok()
+}
+
+/// Applies or reverts one catalogued machine-wide tweak, looked up by id in the helper's own copy
+/// of the catalog. The UI only names the id (and, for revert, the prior state it saved).
+fn tweak(pipe: &mut Pipe, data: &[u8], revert: bool) -> bool {
+    let text = String::from_utf8_lossy(data);
+    let (id, prior) = match text.split_once('\n') {
+        Some((a, b)) => (a.to_string(), Some(b.to_string())),
+        None => (text.to_string(), None),
+    };
+    let reply = (|| -> Result<String, String> {
+        let cat = oz_tweaks::load(oz_tweaks::CATALOG)?;
+        let t = cat.iter().find(|t| t.id == id).ok_or("unknown tweak")?;
+        if t.per_user() || !t.needs_admin || !t.applicable() {
+            return Err("not a machine-wide tweak".into());
+        }
+        if revert {
+            oz_win::tweak_exec::revert(t, prior.as_deref().ok_or("missing prior")?, true)?;
+            Ok(String::new())
+        } else {
+            let p = oz_win::tweak_exec::prior(t)?;
+            oz_win::tweak_exec::apply(t, true)?;
+            Ok(p)
+        }
+    })();
+    match reply {
+        Ok(p) => write_frame(pipe, tag::TWEAK_DONE, p.as_bytes()).is_ok(),
+        Err(e) => write_frame(pipe, tag::ERROR, e.as_bytes()).is_ok(),
+    }
 }

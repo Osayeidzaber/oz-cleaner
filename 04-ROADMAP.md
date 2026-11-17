@@ -72,7 +72,7 @@ F-42 with rollback tests at every step, including simulated copy failure and ful
 
 `oz-tweaks` catalog and loader (D-14), helper `ApplyTweak` / `RevertTweak`, Ledger prior-state records, restore point offer (spike S8), Debloat screen with per-tweak explain, Undo all.
 
-Done 2026-11-17: `oz-tweaks` catalog (77 tweaks: performance, privacy, Explorer, taskbar, storage, accessibility), loader rejecting security and update keys (tested), `oz-win::tweak` registry and power-plan read and write, Tweaks screen with live state, apply and undo with saved prior values. Apply is locked for every tweak: `verified` is empty because Windows Sandbox isn't installed on the owner's machine. HKLM and power-setting tweaks also need helper operations, not built yet.
+Done 2026-11-17: `oz-tweaks` catalog (77 tweaks) with a loader that rejects security and update keys; `oz-win::tweak` and `tweak_exec` shared by app and helper; helper `TWEAK_APPLY` / `TWEAK_REVERT` by catalog id; Tweaks screen with live state and prior-value Undo. Remove built-in apps: 34 catalogued Store apps, current user only, non-removable refused, Store link to reinstall. Uninstall A to Z: leftover finder with confidence levels, files to the Holding Area, HKCU keys exported before deletion and restorable. Owner relaxed the Sandbox gate (AGENTS.md log). Not yet run: a Sandbox round-trip of the real tweaks, and a real uninstall with leftovers on a test app.
 
 **Exit:** Every catalogued tweak passes apply, revert and state-equal in Windows Sandbox. The loader rejects security and update targets (test). No tweak is run on the owner's machine without their request in that moment.
 

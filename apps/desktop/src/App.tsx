@@ -5,9 +5,10 @@ import { Atlas } from "./Atlas";
 import { HistoryScreen, ReclaimScreen, ReclaimDraft } from "./Reclaim";
 import { SettingsScreen, Prefs } from "./Settings";
 import { TweaksScreen } from "./Tweaks";
+import { DebloatScreen } from "./Debloat";
 
 export type Screen = "home" | "clean" | "atlas" | "tools" | "ledger" | "settings";
-export type ToolTab = "programs" | "relocate" | "tweaks";
+export type ToolTab = "programs" | "relocate" | "tweaks" | "apps";
 
 export interface ScanState {
   root: string; running: boolean; items: number; bytes: number; ms: number; mode: string;
@@ -113,6 +114,8 @@ export function App() {
           onAdd={(d) => { setDrafts((o) => o.some((x) => x.path === d.path) ? o : [...o, d]); }} draftCount={drafts.length} onGoReclaim={() => setScreen("clean")} />}
         {screen === "tools" && (toolTab === "tweaks"
           ? <TweaksScreen onBack={() => setToolTab(null)} />
+          : toolTab === "apps"
+          ? <DebloatScreen onBack={() => setToolTab(null)} />
           : toolTab
           ? <ReclaimScreen key={toolTab} initialTab={toolTab} onBack={() => setToolTab(null)} hasScan={hasScan} drafts={drafts} setDrafts={setDrafts} onChanged={() => setStale(true)} stale={stale} onRescan={(f) => startScan(scan.root, f)} canRescan={scan.root !== ""} goVolumes={() => setScreen("home")} />
           : <ToolsScreen open={setToolTab} go={setScreen} />)}
@@ -295,7 +298,8 @@ function ScanningCard({ scan, onStop }: { scan: ScanState; onStop: () => void })
 function ToolsScreen({ open, go }: { open: (t: ToolTab) => void; go: (s: Screen) => void }) {
   const tools: { name: string; text: string; run: () => void }[] = [
     { name: "Tweaks", text: "Performance, privacy, Explorer and taskbar settings, each with its live state and one-click undo.", run: () => open("tweaks") },
-    { name: "Programs by size", text: "Every installed program, measured on disk. Runs the program’s own uninstaller.", run: () => open("programs") },
+    { name: "Remove built-in apps", text: "Preinstalled Microsoft apps like News, Clipchamp and Solitaire, removed for your account and reinstallable from the Store.", run: () => open("apps") },
+    { name: "Uninstall A to Z", text: "Runs a program’s own uninstaller, then finds the folders, shortcuts and settings it left behind.", run: () => open("programs") },
     { name: "Move a folder", text: "Copy to another drive, verify every file, leave a link behind so nothing breaks.", run: () => open("relocate") },
     { name: "Explore a drive", text: "Map, tree and file types for any drive or folder.", run: () => go("home") },
     { name: "Compare scans", text: "What grew since your last scan, folder by folder.", run: () => go("ledger") },

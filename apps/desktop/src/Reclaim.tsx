@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppEntry, api, Candidate, Change, ExecDone, filetimeToDate, fmtBytes, fmtDate, ItemResult, LedgerEntry, Method, midTrim, Plan, PlanItem, Relocated, SnapshotMeta, Tier } from "./api";
+import { AppEntry, api, Leftover, Candidate, Change, ExecDone, filetimeToDate, fmtBytes, fmtDate, ItemResult, LedgerEntry, Method, midTrim, Plan, PlanItem, Relocated, SnapshotMeta, Tier } from "./api";
 
 export interface ReclaimDraft { path: string; name: string; bytes: number; modified: number | null; }
 
@@ -383,6 +383,7 @@ function ProgramsTab({ hasScan, onChanged }: { hasScan: boolean; onChanged: () =
   const [ask, setAsk] = useState<AppEntry | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [left, setLeft] = useState<{ app: string; items: Leftover[] } | null>(null);
   const refresh = useCallback(() => { api.apps().then(setApps).catch(() => setApps([])); }, []);
   useEffect(refresh, [refresh, hasScan]);
   const run = (a: AppEntry) => {
@@ -392,7 +393,8 @@ function ProgramsTab({ hasScan, onChanged }: { hasScan: boolean; onChanged: () =
     api.uninstall(a.key).then((r) => {
       setMsg(r.still_installed
         ? `${a.name} is still installed (its uninstaller exited with code ${r.exit_code}). It may have refused or been cancelled. Oz Cleaner won't force it.`
-        : `${a.name} was removed by its uninstaller.`);
+        : r.leftovers.length ? `${a.name} was removed by its uninstaller. It left the items below behind.` : `${a.name} was removed by its uninstaller, and left nothing behind that Oz recognises.`);
+      if (!r.still_installed && r.leftovers.length) setLeft({ app: a.name, items: r.leftovers });
       refresh();
       onChanged();
     }).catch((e) => setMsg(String(e))).finally(() => setBusy(false));
@@ -401,9 +403,10 @@ function ProgramsTab({ hasScan, onChanged }: { hasScan: boolean; onChanged: () =
   return (
     <div className="gap-4">
       <h1 className="display">Programs by size</h1>
-      <p className="sub">Runs each program's own uninstaller. If it refuses, that's reported and left there.</p>
+      <p className="sub">Uninstall A to Z: runs the program's own uninstaller, then finds its leftover folders, shortcuts and settings. If the uninstaller refuses, that's reported and nothing is forced.</p>
       <div className="field"><input type="text" aria-label="Filter programs" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter" spellCheck={false} /></div>
       {msg && <p className="note">{msg}</p>}
+      {left && <Leftovers app={left.app} items={left.items} onDone={() => { onChanged(); }} onClose={() => setLeft(null)} />}
       {apps === null && <p className="label">Reading</p>}
       <table className="table">
         <thead><tr><th className="label">Program</th><th className="label">Publisher</th><th className="label" style={{ textAlign: "end" }}>Size</th><th /></tr></thead>
@@ -423,6 +426,59 @@ function ProgramsTab({ hasScan, onChanged }: { hasScan: boolean; onChanged: () =
   );
 }
 
+function Leftovers({ app, items, onDone, onClose }: { app: string; items: Leftover[]; onDone: () => void; onClose: () => void }) {
+  const [pick, setPick] = useState<Set<string>>(() => new Set(items.filter((i) => i.preselect).map((i) => i.path)));
+  const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  const [out, setOut] = useState<{ held: number; skipped: string[]; backup: string } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const chosen = items.filter((i) => pick.has(i.path));
+  const total = chosen.reduce((a, i) => a + i.bytes, 0);
+  const go = async () => {
+    setState("busy"); setErr(null);
+    try {
+      const files = chosen.filter((i) => i.kind !== "registry");
+      const regs = chosen.filter((i) => i.kind === "registry").map((i) => i.path);
+      let held = 0; const skipped: string[] = [];
+      if (files.length) {
+        const plan: Plan = { id: `op-${Date.now()}`, items: files.map((i) => ({ path: i.path, method: "Hold", contents_only: false, min_age_days: 0, expect_modified: null, estimated: i.bytes, rule: "uninstall-leftover" })) };
+        const r = await api.execute(plan, false, () => {});
+        for (const x of r.report.results) { if (x.outcome === "Held" || x.outcome === "Done") held++; else skipped.push(`${midTrim(x.path, 60)}: ${x.reason}`); }
+      }
+      const backup = regs.length ? await api.removeRegLeftovers(regs) : "";
+      setOut({ held: held + (backup ? regs.length : 0), skipped, backup });
+      setState("done"); onDone();
+    } catch (e) { setErr(String(e)); setState("idle"); }
+  };
+  return (
+    <section className="panel gap-3" aria-label="Leftovers">
+      <div className="between wrap-row"><h2 className="title">What {app} left behind</h2><button className="btn btn--ghost btn--sm" onClick={onClose}>Close</button></div>
+      {state !== "done" && <>
+        <div className="tweaks">
+          {items.map((i) => (
+            <label key={i.path} className="crow" style={{ minHeight: 56 }}>
+              {i.confidence === "Keep" && i.kind !== "folder" ? <span /> : <input type="checkbox" className="check" checked={pick.has(i.path)} onChange={(e) => setPick((s) => { const n = new Set(s); if (e.target.checked) n.add(i.path); else n.delete(i.path); return n; })} aria-label={`Remove ${i.path}`} />}
+              <span className="crow__text"><span className="crow__name">{i.reason}</span><span className="crow__path" title={i.path}>{midTrim(i.path, 80)}</span></span>
+              <span className="row"><span className={`tag ${i.confidence === "Shared" || i.confidence === "Keep" ? "tag--signal" : ""}`}>{i.confidence}</span><span className="crow__size" style={{ minWidth: 72, textAlign: "end" }}>{i.kind === "registry" ? "Key" : fmtBytes(i.bytes)}</span></span>
+            </label>
+          ))}
+        </div>
+        <p className="muted">Files go to the Holding Area, so you can restore them from History. Registry keys are backed up before removal.</p>
+        {err && <p className="note">{err}</p>}
+        <div className="between wrap-row"><span className="sub">{chosen.length} selected · <strong>{fmtBytes(total)}</strong></span>
+          <button className="btn btn--primary" disabled={!chosen.length || state === "busy"} onClick={go}>{state === "busy" ? "Removing…" : `Remove ${chosen.length} leftover${chosen.length === 1 ? "" : "s"}`}</button></div>
+      </>}
+      {state === "done" && out && (
+        <div className="gap-3 pulse">
+          <p className="sub">{out.held} item{out.held === 1 ? "" : "s"} removed. Files are in the Holding Area.</p>
+          {out.skipped.length > 0 && <ul className="gap-2 muted">{out.skipped.map((s) => <li key={s}>{s}</li>)}</ul>}
+          {out.backup && <div><button className="btn btn--ghost btn--sm" onClick={() => api.restoreRegBackup(out.backup).then(() => setErr("Registry keys restored.")).catch((e) => setErr(String(e)))}>Restore registry keys</button></div>}
+          {err && <p className="note">{err}</p>}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AskUninstall({ a, onCancel, onGo }: { a: AppEntry; onCancel: () => void; onGo: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { ref.current?.showModal(); }, []);
@@ -430,7 +486,7 @@ function AskUninstall({ a, onCancel, onGo }: { a: AppEntry; onCancel: () => void
     <dialog ref={ref} className="modal" onClose={onCancel}>
       <div className="gap-4">
         <h2 className="title">Uninstall {a.name}?</h2>
-        <p className="sub">This starts the program's own uninstaller, which takes over from here.</p>
+        <p className="sub">This starts the program's own uninstaller, which takes over from here. Afterwards, Oz looks for what it left behind and shows you the list. Nothing else is removed until you choose.</p>
         <div className="row"><button className="btn btn--primary" onClick={onGo}>Start uninstaller</button><button className="btn btn--ghost" onClick={onCancel}>Cancel</button></div>
       </div>
     </dialog>

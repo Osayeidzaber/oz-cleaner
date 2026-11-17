@@ -63,7 +63,7 @@ If unsure, make it Protected (explain only). For AI and dev tools, split each to
 A tweak (appx removal, feature toggle, registry value, scheduled task, service start type) may be added only when:
 - the change is made through a documented Microsoft mechanism: `Remove-AppxPackage` for the current user, the DISM or optional features API, a documented policy or registry value, Task Scheduler, or the Service Control Manager;
 - its catalog entry lists the exact targets, the apply action, the revert action, the Windows builds tested, and `verified`;
-- **machine-wide** tweaks (HKLM, services, power settings) must pass apply, revert and a state-equal check in a VM or Sandbox, as an automated test, before they can be applied;
+- **machine-wide** tweaks (HKLM, power settings) are applied only by the elevated helper, by catalog id, with the prior value saved for Undo (owner decision, 2026-11-17). A Sandbox round-trip test is still wanted and should be added when Sandbox is available;
 - **per-user** tweaks (HKCU values and the active power plan) may be applied on the owner's PC without the Sandbox test (owner decision, 2026-11-17). They still need a catalog entry, a saved prior value before writing, and a working Undo. The write and undo mechanism is tested on an app-owned scratch key;
 - it is tiered like cleaning rules: **Recommended**, **Optional**, or **Explain only**.
 
@@ -151,3 +151,4 @@ Append new entries; do not edit old ones.
 - **2026-11-17** Design system "Oz Ink": tokens moved to OKLCH, text contrast raised (text-3 is now L .72), and an owner-requested **accent** `oklch(.86 .16 152)` added for the primary action, focus, selection, progress and success. It is never used for risk. The serif italic accent word is retired; `.accent` is now upright sans in the accent colour. Navigation is now Home / Clean / Explore / Tools / History / Settings. Motion tokens added: `--pop` 200 ms, exits 20% shorter, 30 ms stagger, press scale .97, popovers from .95.
 - **2026-11-17** Owner reversed the accent: "DO NOT USE ACCENT COLOR." The green is removed. `--accent` now resolves to white, so primary actions and selection invert, as on zaber.tech.
 - **2026-11-17** Owner chose to relax the tweak gate ("Relax the gate"). Per-user tweaks (HKCU and the power plan) can now be applied without a Sandbox test, with prior-value Undo kept. Machine-wide tweaks still require the Sandbox test and the elevated helper.
+- **2026-11-17** Owner chose to finish machine-wide tweaks before publishing. The helper gains fixed `TWEAK_APPLY` and `TWEAK_REVERT` operations that take a catalog id (plus the saved prior value for revert), never a path. The project is licensed MIT (owner choice).

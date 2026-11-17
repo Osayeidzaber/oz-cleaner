@@ -2148,6 +2148,7 @@ dependencies = [
  "embed-manifest",
  "oz-ntfs",
  "oz-ops",
+ "oz-tweaks",
  "oz-win",
  "serde_json",
 ]
@@ -2199,6 +2200,7 @@ version = "0.1.0"
 dependencies = [
  "oz-model",
  "oz-ntfs",
+ "oz-tweaks",
  "windows-sys 0.60.2",
 ]
 

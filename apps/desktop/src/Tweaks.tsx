@@ -47,7 +47,7 @@ export function TweaksScreen({ onBack }: { onBack: () => void }) {
           <div className="stat"><div className="stat__n">{list ? open : "—"}</div><span className="label">Ready to apply</span></div>
         </div>
         <p className="sub">Every tweak shows its live state on this PC. Oz saves the previous value before changing anything, so Undo puts back exactly what was there. Security and Windows Update settings are never touched.</p>
-        {list && <p className="muted">Machine-wide tweaks stay locked until they’re tested in Windows Sandbox and the elevated helper can apply them.</p>}
+        {list && <p className="muted">Tweaks marked “Needs admin” ask Windows for administrator permission once per session.</p>}
         {msg && <p className="note">{msg}</p>}
         <div className="tweaks stagger" key={cat}>
           {list === null && [0, 1, 2, 3, 4].map((i) => <div key={i} className="skel" style={{ height: 72, "--i": i } as React.CSSProperties} />)}
