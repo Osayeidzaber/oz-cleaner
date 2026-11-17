@@ -1,0 +1,8 @@
+[package]
+name = "oz-layout"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+oz-model = { path = "../oz-model" }

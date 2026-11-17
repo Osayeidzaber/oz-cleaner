@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/oz-model",
+  "crates/oz-ntfs",
+  "crates/oz-layout",
+  "crates/oz-win",
+  "crates/oz-rules",
+  "crates/oz-ops",
+  "apps/helper",
+  "apps/desktop/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+panic = "unwind"
+
+# Scanning is too slow to be usable without optimisation, even in dev builds.
+[profile.dev.package."*"]
+opt-level = 2
+[profile.dev]
+opt-level = 1

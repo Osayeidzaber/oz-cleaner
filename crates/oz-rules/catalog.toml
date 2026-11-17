@@ -1,0 +1,211 @@
+# Rule catalog (F-30, A-9). Read AGENTS.md section 5 before changing this file.
+# A rule may only be cleanable (tier other than Protected) when `verified`
+# records real evidence. When evidence is thin, the rule stays Protected and
+# only explains. Popularity on cleanup blogs is not evidence.
+
+[[rule]]
+id = "user-temp"
+name = "Your temporary files"
+explain = "Scratch space Windows and apps use for your account. Only items untouched for 7 days are offered, and anything in use is skipped."
+after = "Apps recreate what they need."
+tier = "Rebuildable"
+category = "Temporary"
+paths = ["%LOCALAPPDATA%\\Temp"]
+action = "delete_contents"
+min_age_days = 7
+verified = "2026-11-07, build 22631: path present. Windows-defined temp location; 7-day age and skip-locked limit the risk."
+
+[[rule]]
+id = "windows-temp"
+name = "Windows temporary files"
+explain = "Shared scratch space for system services. Only items untouched for 7 days are offered, and anything in use is skipped. Needs administrator rights."
+after = "Services recreate what they need."
+tier = "Rebuildable"
+category = "Temporary"
+paths = ["%WINDIR%\\Temp"]
+action = "delete_contents"
+min_age_days = 7
+needs_admin = true
+verified = "2026-11-07, build 22631: path present. Windows-defined temp location; 7-day age and skip-locked limit the risk."
+
+[[rule]]
+id = "npm-cache"
+name = "npm package cache"
+explain = "Copies of packages npm has downloaded. npm's documentation describes the cache as self-healing."
+after = "npm downloads packages again as needed, so the next install is slower and needs a connection."
+tier = "Caution"
+category = "Developer"
+paths = ["%LOCALAPPDATA%\\npm-cache"]
+action = "delete_contents"
+verified = "2026-11-07, build 22631: path present. Location and behaviour from docs.npmjs.com/cli/commands/npm-cache."
+
+[[rule]]
+id = "crash-dumps"
+name = "App crash dumps"
+explain = "Memory snapshots saved when an app crashes. Only useful if you are diagnosing that crash."
+after = "Existing crash evidence is gone. New crashes still produce new dumps."
+tier = "Caution"
+category = "Diagnostics"
+paths = ["%LOCALAPPDATA%\\CrashDumps"]
+action = "delete_contents"
+verified = "2026-11-07: default DumpFolder per learn.microsoft.com/windows/win32/wer/collecting-user-mode-dumps. Absent on the build machine."
+
+# Explain-only below. Listed so "What is this?" can answer; never deleted.
+
+[[rule]]
+id = "windows-old"
+name = "Previous Windows installation"
+explain = "Your old Windows, kept so you can roll back an upgrade."
+after = "Removing it through Settings ends your ability to roll back."
+tier = "Protected"
+category = "Windows"
+paths = ["%SYSTEMDRIVE%\\Windows.old"]
+action = "open_settings"
+settings_uri = "ms-settings:storagesense"
+verified = "Protected: Windows-managed; handled by Windows Settings."
+
+[[rule]]
+id = "winsxs"
+name = "Windows component store"
+explain = "Windows' library of system components. Much of the size shown is hard links shared with System32. Microsoft says not to delete this folder."
+after = "Microsoft's cleanup task removes superseded versions safely."
+tier = "Protected"
+category = "Windows"
+paths = ["%WINDIR%\\WinSxS"]
+action = "run_tool"
+tool = "ComponentCleanup"
+verified = "learn.microsoft.com/windows-hardware/manufacture/desktop/clean-up-the-winsxs-folder"
+
+[[rule]]
+id = "update-cache"
+name = "Windows Update downloads"
+explain = "Files Windows Update has downloaded. Windows manages this; use its own cleanup."
+after = "Windows downloads updates again if it still needs them."
+tier = "Protected"
+category = "Windows"
+paths = ["%WINDIR%\\SoftwareDistribution\\Download"]
+action = "open_settings"
+settings_uri = "ms-settings:storagesense"
+verified = "Protected: Windows-managed."
+
+[[rule]]
+id = "hiberfil"
+name = "Hibernation file"
+explain = "Holds memory contents when the PC hibernates. Windows manages it, and it is controlled through power settings, not by deleting it."
+after = ""
+tier = "Protected"
+category = "Windows"
+paths = ["%SYSTEMDRIVE%\\hiberfil.sys"]
+action = "none"
+verified = "Protected: system file."
+
+[[rule]]
+id = "pagefile"
+name = "Page file"
+explain = "Virtual memory, used when RAM fills up. Windows manages it, and it is controlled through system settings, not by deleting it."
+after = ""
+tier = "Protected"
+category = "Windows"
+paths = ["%SYSTEMDRIVE%\\pagefile.sys", "%SYSTEMDRIVE%\\swapfile.sys"]
+action = "none"
+verified = "Protected: system file."
+
+[[rule]]
+id = "installer"
+name = "Windows Installer store"
+explain = "Files needed to repair or uninstall installed programs. Removing them can leave programs impossible to update or uninstall."
+after = ""
+tier = "Protected"
+category = "Windows"
+paths = ["%WINDIR%\\Installer"]
+action = "none"
+verified = "Protected: system folder."
+
+[[rule]]
+id = "chrome-profile"
+name = "Chrome data"
+explain = "Your Chrome profiles: passwords, history and extensions, plus cache. Clear browsing data from inside Chrome, which knows which is which."
+after = ""
+tier = "Protected"
+category = "Browser"
+paths = ["%LOCALAPPDATA%\\Google\\Chrome\\User Data"]
+action = "none"
+verified = "Protected: holds personal data. Cache cleaning not yet verified."
+
+[[rule]]
+id = "edge-profile"
+name = "Edge data"
+explain = "Your Edge profiles: passwords, history and extensions, plus cache. Clear browsing data from inside Edge, which knows which is which."
+after = ""
+tier = "Protected"
+category = "Browser"
+paths = ["%LOCALAPPDATA%\\Microsoft\\Edge\\User Data"]
+action = "none"
+verified = "Protected: holds personal data. Cache cleaning not yet verified."
+
+[[rule]]
+id = "firefox-profile"
+name = "Firefox data"
+explain = "Your Firefox disk caches. Clear them from inside Firefox."
+after = ""
+tier = "Protected"
+category = "Browser"
+paths = ["%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles"]
+action = "none"
+verified = "Protected: cache cleaning not yet verified."
+
+[[rule]]
+id = "pip-cache"
+name = "pip package cache"
+explain = "Python packages pip has downloaded. Run `pip cache purge` to clear it with pip's own tool."
+after = ""
+tier = "Protected"
+category = "Developer"
+paths = ["%LOCALAPPDATA%\\pip\\Cache"]
+action = "none"
+verified = "Explain-only until checked against pip's own documentation."
+
+[[rule]]
+id = "pnpm-store"
+name = "pnpm package store"
+explain = "Packages shared by your pnpm projects through links. Run `pnpm store prune` rather than deleting it."
+after = ""
+tier = "Protected"
+category = "Developer"
+paths = ["%LOCALAPPDATA%\\pnpm\\store"]
+action = "none"
+verified = "Protected: projects link into this store."
+
+[[rule]]
+id = "wer"
+name = "Windows Error Reporting"
+explain = "Problem reports Windows keeps. Windows manages them; Storage settings can clear them."
+after = ""
+tier = "Protected"
+category = "Diagnostics"
+paths = ["%PROGRAMDATA%\\Microsoft\\Windows\\WER"]
+action = "open_settings"
+settings_uri = "ms-settings:storagesense"
+verified = "Protected: behaviour of direct deletion not verified."
+
+[[rule]]
+id = "thumbnails"
+name = "Explorer caches"
+explain = "Thumbnail and icon caches, and other Explorer data. Disk Cleanup can clear thumbnails."
+after = ""
+tier = "Protected"
+category = "Windows"
+paths = ["%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer"]
+action = "none"
+verified = "Protected: direct deletion not verified."
+
+[[rule]]
+id = "wsl-docker"
+name = "WSL or Docker data"
+explain = "Linux and container environments stored as virtual disks. These can hold real work. Manage them with their own tools."
+after = ""
+tier = "Protected"
+category = "Developer"
+paths = ["%LOCALAPPDATA%\\Packages\\*\\LocalState\\ext4.vhdx", "%LOCALAPPDATA%\\Docker\\wsl"]
+action = "none"
+verified = "Protected: may contain user data."

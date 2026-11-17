@@ -1,0 +1,20 @@
+[package]
+name = "oz-helper"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# The admin manifest stops a test binary starting unelevated; logic is tested in oz-ops.
+[[bin]]
+name = "oz-helper"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+oz-ntfs = { path = "../../crates/oz-ntfs" }
+oz-win = { path = "../../crates/oz-win" }
+oz-ops = { path = "../../crates/oz-ops" }
+serde_json = "1"
+
+[build-dependencies]
+embed-manifest = "1"
